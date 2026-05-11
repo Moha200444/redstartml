@@ -1108,61 +1108,136 @@ def _(mo):
     return
 
 
-@app.function
-def world(view_box, *objects):
-    x_min, x_max, y_min, y_max = view_box
-    W, H = x_max - x_min, y_max - y_min
+@app.cell
+def _(l):
+    import random as _random
 
-    defs = """
-    <defs>
-        <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#0b132b"/>
-            <stop offset="40%" stop-color="#1c2541"/>
-            <stop offset="100%" stop-color="#3a506b"/>
-        </linearGradient>
-        <linearGradient id="seaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#1b263b"/>
-            <stop offset="100%" stop-color="#0d1b2a"/>
-        </linearGradient>
-        <pattern id="grid" width="2" height="2" patternUnits="userSpaceOnUse">
-            <path d="M 2 0 L 0 0 0 2" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="0.02"/>
-        </pattern>
-        <filter id="exhaustGlow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="0.04" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-    </defs>
-    """
 
-    sky   = f'<rect x="{x_min}" y="{-y_max}" width="{W}" height="{H}" fill="url(#skyGrad)"/>'
-    grid  = f'<rect x="{x_min}" y="{-y_max}" width="{W}" height="{H}" fill="url(#grid)"/>'
-    sea   = f'<rect x="{x_min}" y="0" width="{W}" height="{-y_min}" fill="url(#seaGrad)"/>'
-    horiz = f'<line x1="{x_min}" y1="0" x2="{x_max}" y2="0" stroke="#4a6fa5" stroke-width="0.03"/>'
+    # Compteur global pour les identifiants SVG uniques
+    _world_uid = [0]
 
-    # Barge ASDS stylisée
-    barge = f"""
-    <rect x="-2.5" y="-0.08" width="5.0" height="0.08" fill="#2c3e50" rx="0.02"/>
-    <rect x="-1.2" y="-0.03" width="2.4" height="0.03" fill="#f39c12"/>
-    <circle cx="0" cy="0" r="0.3" fill="none" stroke="#e74c3c" stroke-width="0.02"/>
-    <line x1="-0.3" y1="0" x2="0.3" y2="0" stroke="#e74c3c" stroke-width="0.015"/>
-    <line x1="0" y1="-0.3" x2="0" y2="0.3" stroke="#e74c3c" stroke-width="0.015"/>
-    <text x="0" y="-0.35" font-family="monospace" font-size="0.18" fill="#ecf0f1" text-anchor="middle">ASDS</text>
-    """
+    def world(view_box, *objects):
+        x_min, x_max, y_min, y_max = view_box
+        W, H = x_max - x_min, y_max - y_min
+        _world_uid[0] += 1
+        uid = _world_uid[0]
 
-    objs = "\n    ".join(objects) if objects else ""
+        # --- Définitions SVG (gradients, filtres) ---
+        defs = (
+            f'<defs>'
+            # Ciel gradient
+            f'<linearGradient id="sky{uid}" x1="0" y1="0" x2="0" y2="1">'
+            f'<stop offset="0%" stop-color="#0c1445"/>'
+            f'<stop offset="30%" stop-color="#1b3a6b"/>'
+            f'<stop offset="65%" stop-color="#4a90d9"/>'
+            f'<stop offset="100%" stop-color="#87ceeb"/>'
+            f'</linearGradient>'
+            # Sol gradient
+            f'<linearGradient id="gnd{uid}" x1="0" y1="0" x2="0" y2="1">'
+            f'<stop offset="0%" stop-color="#4caf50"/>'
+            f'<stop offset="4%" stop-color="#388e3c"/>'
+            f'<stop offset="100%" stop-color="#5d4037"/>'
+            f'</linearGradient>'
+            # Grille
+            f'<pattern id="grid{uid}" width="1" height="1" patternUnits="userSpaceOnUse">'
+            f'<path d="M 1 0 L 0 0 0 1" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.015"/>'
+            f'</pattern>'
+            # Filtre lueur
+            f'<filter id="glow{uid}" x="-50%" y="-50%" width="200%" height="200%">'
+            f'<feGaussianBlur stdDeviation="0.12" result="b"/>'
+            f'<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>'
+            f'</filter>'
+            f'</defs>'
+        )
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="{x_min} {-y_max} {W} {H}"
-            style="width:100%; height:auto; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.5); background:#000;">
-    {defs}
-    {sky}
-    {grid}
-    {sea}
-    {horiz}
-    <g transform="scale(1, -1)">
-        {barge}
-        {objs}
-    </g>
-    </svg>"""
+        # --- Éléments statiques (coordonnées SVG, y inversé) ---
+        sky = (f'<rect x="{x_min}" y="{-y_max}" width="{W}" '
+               f'height="{y_max}" fill="url(#sky{uid})"/>')
+        grid = (f'<rect x="{x_min}" y="{-y_max}" width="{W}" '
+                f'height="{y_max}" fill="url(#grid{uid})"/>')
+
+        # Étoiles
+        rng = _random.Random(42)
+        stars = ""
+        for _ in range(40):
+            sx = rng.uniform(x_min + 0.2, x_max - 0.2)
+            sy = rng.uniform(-y_max + 0.2, -y_max * 0.3)
+            sr = rng.uniform(0.015, 0.05)
+            so = rng.uniform(0.3, 0.85)
+            stars += (f'<circle cx="{sx:.2f}" cy="{sy:.2f}" r="{sr:.3f}" '
+                      f'fill="white" opacity="{so:.2f}"/>')
+
+        # Sol
+        ground = (f'<rect x="{x_min}" y="0" width="{W}" '
+                  f'height="{-y_min}" fill="url(#gnd{uid})"/>')
+
+        # Plateforme d'atterrissage
+        pw = l  # largeur = longueur du booster
+        ph = 0.10
+        pad_bg = (f'<rect x="{-pw/2}" y="{-ph}" width="{pw}" height="{ph}" '
+                  f'fill="#616161" rx="0.015"/>')
+        pad_mark_v = (f'<line x1="0" y1="{-ph}" x2="0" y2="0" '
+                      f'stroke="#ffd700" stroke-width="0.025"/>')
+        pad_mark_h = (f'<line x1="{-pw/2 + 0.05}" y1="{-ph/2}" '
+                      f'x2="{pw/2 - 0.05}" y2="{-ph/2}" '
+                      f'stroke="#ffd700" stroke-width="0.018"/>')
+        pad_border = (f'<rect x="{-pw/2}" y="{-ph}" width="{pw}" height="{ph}" '
+                      f'fill="none" stroke="#ffc107" stroke-width="0.012" rx="0.015"/>')
+
+        # Ligne d'horizon
+        horizon = (f'<line x1="{x_min}" y1="0" x2="{x_max}" y2="0" '
+                   f'stroke="#2e7d32" stroke-width="0.025"/>')
+
+        # Marqueurs d'altitude
+        alt_marks = ""
+        for a in range(2, int(y_max) + 1, 2):
+            alt_marks += (f'<line x1="{x_min + 0.05}" y1="{-a}" '
+                          f'x2="{x_min + 0.25}" y2="{-a}" '
+                          f'stroke="rgba(255,255,255,0.2)" stroke-width="0.01"/>')
+            alt_marks += (f'<text x="{x_min + 0.3}" y="{-a + 0.06}" '
+                          f'fill="rgba(255,255,255,0.25)" font-size="0.16" '
+                          f'font-family="monospace">{a}</text>')
+
+        # --- Objets dynamiques (coordonnées cartésiennes, y inversé par scale) ---
+        objs = "\n    ".join(objects) if objects else ""
+
+        return (
+            f'<svg xmlns="http://www.w3.org/2000/svg" '
+            f'viewBox="{x_min} {-y_max} {W} {H}" '
+            f'style="width:100%;height:auto;border-radius:8px;overflow:hidden;'
+            f'box-shadow:0 4px 16px rgba(0,0,0,0.25);background:#0c1445">'
+            f'{defs}'
+            f'{sky}{stars}{grid}{ground}'
+            f'{pad_bg}{pad_mark_v}{pad_mark_h}{pad_border}{horizon}{alt_marks}'
+            f'<g transform="scale(1, -1)">'
+            f'{objs}'
+            f'</g></svg>'
+        )
+
+
+    return (world,)
+
+
+@app.cell
+def _(mo, world):
+    mo.hstack(
+        [
+            mo.Html(world([-3, 3, -2, 4])),
+
+            mo.Html(world(
+                [-3, 3, -2, 4],
+                '<rect x="-1" y="0" width="2" height="2" fill="black"/>',
+            )),
+
+            mo.Html(world(
+                [-3, 3, -2, 4],
+                '<rect x="-3" y="2" width="2" height="2" fill="red"/>',
+                '<rect x="1" y="2" width="2" height="2" fill="blue"/>',
+            )),
+        ],
+        justify="space-around"
+    )
+    return
 
 
 @app.cell(hide_code=True)
@@ -1221,54 +1296,91 @@ def _(mo):
 def _(M, g, l, math):
     def booster(x, y, theta, f, phi):
         td = math.degrees(theta)
-        w = 0.24
+        hw = 0.09  # demi-largeur du corps
 
-        # Corps principal (blanc + bande noire interstage)
-        body = f'<rect x="{-w/2}" y="{-l/2}" width="{w}" height="{l}" fill="#f8f9fa" stroke="#bdc3c7" stroke-width="0.01" rx="0.03"/>'
-        band = f'<rect x="{-w/2}" y="{-l/2 + 0.15}" width="{w}" height="0.12" fill="#2c3e50"/>'
-        logo = f'<circle cx="0" cy="{l/4}" r="0.04" fill="#e74c3c"/>'
+        # --- Corps du booster ---
+        body = (f'<rect x="{-hw}" y="{-l/2}" width="{2*hw}" height="{l}" '
+                f'fill="#78909c" rx="0.04"/>')
+        # Bande d'accent
+        band = (f'<rect x="{-hw}" y="{-l*0.05}" width="{2*hw}" height="{l*0.10}" '
+                f'fill="#e53935" rx="0.01"/>')
+        # Fenêtre
+        window = (f'<circle cx="0" cy="{l*0.20}" r="{hw*0.40}" fill="#b3e5fc" '
+                  f'stroke="#546e7a" stroke-width="0.015"/>')
+        # Ogive (courbe)
+        nose = (f'<path d="M{-hw},{l/2} Q{-hw},{l/2+0.22} 0,{l/2+0.28} '
+                f'Q{hw},{l/2+0.22} {hw},{l/2} Z" fill="#90a4ae"/>')
+        # Ailerons
+        fin_l = (f'<polygon points="{-hw},{-l/2+0.22} {-hw-0.10},{-l/2} '
+                 f'{-hw},{-l/2}" fill="#546e7a"/>')
+        fin_r = (f'<polygon points="{hw},{-l/2+0.22} {hw+0.10},{-l/2} '
+                 f'{hw},{-l/2}" fill="#546e7a"/>')
+        # Tuyère
+        nozzle = (f'<rect x="{-hw*1.25}" y="{-l/2-0.04}" width="{2*hw*1.25}" '
+                  f'height="0.04" fill="#455a64" rx="0.01"/>')
 
-        # Grid fins (haut)
-        gf_l = f'<polygon points="{-w/2},{l/2-0.1} {-w/2-0.12},{l/2-0.05} {-w/2-0.12},{l/2+0.05} {-w/2},{l/2}" fill="#7f8c8d"/>'
-        gf_r = f'<polygon points="{w/2},{l/2-0.1} {w/2+0.12},{l/2-0.05} {w/2+0.12},{l/2+0.05} {w/2},{l/2}" fill="#7f8c8d"/>'
+        svg_body = (f'<g transform="translate({x}, {y}) rotate({td})">'
+                    f'{body}{band}{window}{nose}{fin_l}{fin_r}{nozzle}</g>')
 
-        # Jambes d'atterrissage (déployées si y < 2.5)
-        leg_ext = 0.0 if y > 2.5 else min(1.0, (2.5 - y) / 1.5)
-        leg_len = 0.35 * leg_ext
-        leg_w   = 0.04
-        leg_l = f'<polygon points="{-w/2},{-l/2} {-w/2-leg_len},{-l/2-leg_len*0.6} {-w/2-leg_len+leg_w},{-l/2-leg_len*0.6} {-w/2+leg_w},{-l/2}" fill="#34495e"/>'
-        leg_r = f'<polygon points="{w/2},{-l/2} {w/2+leg_len},{-l/2-leg_len*0.6} {w/2+leg_len-leg_w},{-l/2-leg_len*0.6} {w/2-leg_w},{-l/2}" fill="#34495e"/>'
-
-        # Tuyère (s'oriente avec phi)
-        nd = math.degrees(phi)
-        nozzle = f"""<g transform="translate(0, {-l/2}) rotate({nd})">
-            <polygon points="{-w/3},0 {w/3},0 {w/4},-0.08 {-w/4},-0.08" fill="#2c3e50"/>
-            <ellipse cx="0" cy="-0.08" rx="{w/4}" ry="0.015" fill="#1a1a1a"/>
-        </g>"""
-
-        svg_body = f'<g transform="translate({x}, {y}) rotate({td})">{body}{band}{logo}{gf_l}{gf_r}{leg_l}{leg_r}{nozzle}</g>'
-
-        # Flamme (seulement si poussée significative)
+        # --- Flamme ---
         svg_flame = ""
-        if f > 1e-6:
-            fL = (f / (M * g)) * (l / 2.0) * (1 + 0.2 * max(0, y/10))  # expansion altitude
-            bx, by = 0.0, -l/2 - 0.08
-            ang = theta + phi
-            dx, dy = math.sin(ang), -math.cos(ang)
-            px, py = math.cos(ang), math.sin(ang)
-            tx, ty = bx + fL*dx, by + fL*dy
-            wb, wt = 0.07, 0.015
+        if f > 1e-10:
+            fL = (f / (M * g)) * (l / 2.0)  # ℓ/2 quand f=Mg
+            bx, by = 0.0, -l / 2.0 - 0.04
+            dx, dy = math.sin(phi), -math.cos(phi)   # direction flamme
+            px, py = math.cos(phi), math.sin(phi)     # perpendiculaire
 
-            ext = f'<polygon points="{bx-wb*px:.4f},{by-wb*py:.4f} {bx+wb*px:.4f},{by+wb*py:.4f} {tx+wt*px:.4f},{ty+wt*py:.4f} {tx-wt*px:.4f},{ty-wt*py:.4f}" fill="#ff7f00" opacity="0.85" filter="url(#exhaustGlow)"/>'
-            iL = fL * 0.5
-            ix, iy = bx + iL*dx, by + iL*dy
-            wb2, wt2 = wb*0.6, wt*0.6
-            mid = f'<polygon points="{bx-wb2*px:.4f},{by-wb2*py:.4f} {bx+wb2*px:.4f},{by+wb2*py:.4f} {ix+wt2*px:.4f},{iy+wt2*py:.4f} {ix-wt2*px:.4f},{iy-wt2*py:.4f}" fill="#ffcc00" opacity="0.9"/>'
-            core= f'<polygon points="{bx-wb2*0.3*px:.4f},{by-wb2*0.3*py:.4f} {bx+wb2*0.3*px:.4f},{by+wb2*0.3*py:.4f} {ix+wt2*0.3*px:.4f},{iy+wt2*0.3*py:.4f} {ix-wt2*0.3*px:.4f},{iy-wt2*0.3*py:.4f}" fill="#ffffff" opacity="0.95"/>'
-
-            svg_flame = f'<g transform="translate({x}, {y}) rotate({td})">{ext}{mid}{core}</g>'
+            # Couches de flamme: (couleur, opacité, w_base, w_tip, facteur_longueur)
+            layers = [
+                ("#ff6f00", 0.65, 0.11, 0.035, 1.00),
+                ("#ff9800", 0.75, 0.08, 0.025, 0.80),
+                ("#ffeb3b", 0.85, 0.045, 0.015, 0.55),
+                ("#ffffff", 0.90, 0.020, 0.008, 0.25),
+            ]
+            polys = ""
+            for color, opacity, wb, wt, lf in layers:
+                L = fL * lf
+                tx, ty = bx + L * dx, by + L * dy
+                polys += (
+                    f'<polygon points="'
+                    f'{bx-wb*px:.4f},{by-wb*py:.4f} '
+                    f'{bx+wb*px:.4f},{by+wb*py:.4f} '
+                    f'{tx+wt*px:.4f},{ty+wt*py:.4f} '
+                    f'{tx-wt*px:.4f},{ty-wt*py:.4f}" '
+                    f'fill="{color}" opacity="{opacity}"/>'
+                )
+            svg_flame = (f'<g transform="translate({x}, {y}) rotate({td})">'
+                          f'{polys}</g>')
 
         return svg_body + svg_flame
+
+
+    return (booster,)
+
+
+@app.cell
+def _(M, booster, g, l, mo, np, world):
+    # Tests : trois configurations du booster
+    mo.hstack(
+        [
+            # (1) Booster posé au sol, réacteur éteint
+            mo.Html(
+                world([-3, 3, -2, 4], booster(0, l/2, 0, 0, 0))
+            ),
+            # (2) Vol stationnaire : f = Mg => flamme de longueur ℓ/2
+            mo.Html(
+                world([-3, 3, -2, 4], booster(0, l, 0, M * g, 0))
+            ),
+            # (3) Incliné, forte poussée décalée
+            mo.Html(
+                world(
+                    [-3, 3, -2, 4],
+                    booster(-l/2, l, np.pi / 4, 2 * M * g, np.pi / 2),
+                )
+            ),
+        ],
+        justify="space-around",
+    )
 
     return
 
@@ -1323,104 +1435,111 @@ def _(mo):
 @app.cell
 def _(M, g, l, math):
     def booster_anim(x, y, theta, f, phi, T):
-        N = 80
+        N = 100  # keyframes pour animation fluide
         dt = T / N
         times = [i * dt for i in range(N + 1)]
 
-        xs, ys = [x(t) for t in times], [y(t) for t in times]
+        xs     = [x(t)     for t in times]
+        ys     = [y(t)     for t in times]
         thetas = [theta(t) for t in times]
-        fs, phis = [f(t) for t in times], [phi(t) for t in times]
+        fs     = [f(t)     for t in times]
+        phis   = [phi(t)   for t in times]
 
-        trans_vals = ";".join(f"{xs[i]},{ys[i]}" for i in range(N + 1))
-        rot_vals   = ";".join(f"{math.degrees(thetas[i])}" for i in range(N + 1))
-        key_times  = ";".join(f"{i/N:.4f}" for i in range(N + 1))
+        tr_vals = ";".join(f"{xs[i]},{ys[i]}" for i in range(N + 1))
+        rot_vals = ";".join(f"{math.degrees(thetas[i]):.4f}" for i in range(N + 1))
 
-        w = 0.24
-        body = f'<rect x="{-w/2}" y="{-l/2}" width="{w}" height="{l}" fill="#f8f9fa" stroke="#bdc3c7" stroke-width="0.01" rx="0.03"/>'
-        band = f'<rect x="{-w/2}" y="{-l/2 + 0.15}" width="{w}" height="0.12" fill="#2c3e50"/>'
-        logo = f'<circle cx="0" cy="{l/4}" r="0.04" fill="#e74c3c"/>'
-        gf_l = f'<polygon points="{-w/2},{l/2-0.1} {-w/2-0.12},{l/2-0.05} {-w/2-0.12},{l/2+0.05} {-w/2},{l/2}" fill="#7f8c8d"/>'
-        gf_r = f'<polygon points="{w/2},{l/2-0.1} {w/2+0.12},{l/2-0.05} {w/2+0.12},{l/2+0.05} {w/2},{l/2}" fill="#7f8c8d"/>'
-        noz  = f'<polygon points="{-w/3},{-l/2} {w/3},{-l/2} {w/4},{-l/2-0.08} {-w/4},{-l/2-0.08}" fill="#2c3e50"/>'
+        hw = 0.09
+        # Éléments statiques du corps (dans le groupe animé)
+        body_el = (f'<rect x="{-hw}" y="{-l/2}" width="{2*hw}" height="{l}" '
+                   f'fill="#78909c" rx="0.04"/>')
+        band_el = (f'<rect x="{-hw}" y="{-l*0.05}" width="{2*hw}" height="{l*0.10}" '
+                   f'fill="#e53935" rx="0.01"/>')
+        win_el  = (f'<circle cx="0" cy="{l*0.20}" r="{hw*0.40}" fill="#b3e5fc" '
+                   f'stroke="#546e7a" stroke-width="0.015"/>')
+        nose_el = (f'<path d="M{-hw},{l/2} Q{-hw},{l/2+0.22} 0,{l/2+0.28} '
+                   f'Q{hw},{l/2+0.22} {hw},{l/2} Z" fill="#90a4ae"/>')
+        fin_l_el = (f'<polygon points="{-hw},{-l/2+0.22} {-hw-0.10},{-l/2} '
+                    f'{-hw},{-l/2}" fill="#546e7a"/>')
+        fin_r_el = (f'<polygon points="{hw},{-l/2+0.22} {hw+0.10},{-l/2} '
+                    f'{hw},{-l/2}" fill="#546e7a"/>')
+        noz_el = (f'<rect x="{-hw*1.25}" y="{-l/2-0.04}" width="{2*hw*1.25}" '
+                  f'height="0.04" fill="#455a64" rx="0.01"/>')
 
-        # Jambes animées (déploiement progressif)
-        leg_frames_l, leg_frames_r = [], []
-        for i in range(N + 1):
-            yi = ys[i]
-            ext = 0.0 if yi > 2.5 else min(1.0, (2.5 - yi) / 1.5)
-            ll = 0.35 * ext
-            lw = 0.04
-            leg_frames_l.append(f"{-w/2},{-l/2} {-w/2-ll},{-l/2-ll*0.6} {-w/2-ll+lw},{-l/2-ll*0.6} {-w/2+lw},{-l/2}")
-            leg_frames_r.append(f"{w/2},{-l/2} {w/2+ll},{-l/2-ll*0.6} {w/2+ll-lw},{-l/2-ll*0.6} {w/2-lw},{-l/2}")
+        # Couches de flamme
+        flame_layers = [
+            ("#ff6f00", 0.65, 0.11, 0.035, 1.00),
+            ("#ff9800", 0.75, 0.08, 0.025, 0.80),
+            ("#ffeb3b", 0.85, 0.045, 0.015, 0.55),
+            ("#ffffff", 0.90, 0.020, 0.008, 0.25),
+        ]
 
-        leg_l_svg = f'<polygon fill="#34495e"><animate attributeName="points" values="{";".join(leg_frames_l)}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/></polygon>'
-        leg_r_svg = f'<polygon fill="#34495e"><animate attributeName="points" values="{";".join(leg_frames_r)}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/></polygon>'
+        flame_anims = ""
+        for color, opacity, wb, wt, lf in flame_layers:
+            frames = []
+            for i in range(N + 1):
+                fv = fs[i]
+                pv = phis[i]
+                if fv > 1e-10:
+                    fL_val = (fv / (M * g)) * (l / 2.0) * lf
+                    # léger scintillement pour les couches internes
+                    if lf < 0.6:
+                        flicker = 1.0 + 0.04 * math.sin(i * 2.3) + 0.03 * math.cos(i * 3.7)
+                        fL_val *= flicker
+                    fdx = math.sin(pv)
+                    fdy = -math.cos(pv)
+                    ppx = math.cos(pv)
+                    ppy = math.sin(pv)
+                    bx, by = 0.0, -l / 2.0 - 0.04
+                    tx, ty = bx + fL_val * fdx, by + fL_val * fdy
+                    frames.append(
+                        f"{bx-wb*ppx:.4f},{by-wb*ppy:.4f} "
+                        f"{bx+wb*ppx:.4f},{by+wb*ppy:.4f} "
+                        f"{tx+wt*ppx:.4f},{ty+wt*ppy:.4f} "
+                        f"{tx-wt*ppx:.4f},{ty-wt*ppy:.4f}"
+                    )
+                else:
+                    p = f"0,{-l/2-0.04:.4f}"
+                    frames.append(f"{p} {p} {p} {p}")
+            vals = ";".join(frames)
+            flame_anims += (
+                f'<polygon fill="{color}" opacity="{opacity}">'
+                f'<animate attributeName="points" values="{vals}" '
+                f'dur="{T}s" repeatCount="indefinite"/></polygon>'
+            )
 
-        # Groupe corps (translation → rotation)
-        body_svg = f"""<g>
-            <animateTransform attributeName="transform" type="translate" values="{trans_vals}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/>
-            <g>
-                <animateTransform attributeName="transform" type="rotate" values="{rot_vals}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/>
-                {body}{band}{logo}{gf_l}{gf_r}{leg_l_svg}{leg_r_svg}{noz}
-            </g>
-        </g>"""
+        return (
+            f'<g>'
+            f'<animateTransform attributeName="transform" type="translate" '
+            f'values="{tr_vals}" dur="{T}s" repeatCount="indefinite"/>'
+            f'<animateTransform attributeName="transform" type="rotate" '
+            f'values="{rot_vals}" dur="{T}s" repeatCount="indefinite" '
+            f'additive="sum"/>'
+            f'{body_el}{band_el}{win_el}{nose_el}{fin_l_el}{fin_r_el}{noz_el}'
+            f'{flame_anims}'
+            f'</g>'
+        )
 
-        # Flamme animée (direction θ+φ, longueur ∝ f, expansion altitude)
-        wb, wt = 0.07, 0.015
-        wbi, wti = 0.042, 0.009
-        wc, wtc = 0.021, 0.0045
-        outer_f, mid_f, core_f, op_vals = [], [], [], []
-
-        for i in range(N + 1):
-            fv, pv, tv, yi = fs[i], phis[i], thetas[i], ys[i]
-            if fv > 1e-6:
-                fL = (fv / (M * g)) * (l / 2.0) * (1 + 0.2 * max(0, yi/10))
-                ang = tv + pv
-                dx, dy = math.sin(ang), -math.cos(ang)
-                px, py = math.cos(ang), math.sin(ang)
-                bx, by = 0.0, -l/2 - 0.08
-                tx, ty = bx + fL*dx, by + fL*dy
-                outer_f.append(f"{bx-wb*px:.4f},{by-wb*py:.4f} {bx+wb*px:.4f},{by+wb*py:.4f} {tx+wt*px:.4f},{ty+wt*py:.4f} {tx-wt*px:.4f},{ty-wt*py:.4f}")
-                iL = fL * 0.5
-                ix, iy = bx + iL*dx, by + iL*dy
-                mid_f.append(f"{bx-wbi*px:.4f},{by-wbi*py:.4f} {bx+wbi*px:.4f},{by+wbi*py:.4f} {ix+wti*px:.4f},{iy+wti*py:.4f} {ix-wti*px:.4f},{iy-wti*py:.4f}")
-                core_f.append(f"{bx-wc*px:.4f},{by-wc*py:.4f} {bx+wc*px:.4f},{by+wc*py:.4f} {ix+wtc*px:.4f},{iy+wtc*py:.4f} {ix-wtc*px:.4f},{iy-wtc*py:.4f}")
-                op_vals.append("0.9")
-            else:
-                deg = f"0,{-l/2-0.08:.4f} 0,{-l/2-0.08:.4f} 0,{-l/2-0.08:.4f} 0,{-l/2-0.08:.4f}"
-                outer_f.append(deg); mid_f.append(deg); core_f.append(deg); op_vals.append("0")
-
-        ov, mv, cv, opv = ";".join(outer_f), ";".join(mid_f), ";".join(core_f), ";".join(op_vals)
-        theta_phi_vals = ";".join(f"{math.degrees(thetas[i]+phis[i])}" for i in range(N + 1))
-
-        flame_ext = f"""<polygon fill="#ff7f00" opacity="0.85" filter="url(#exhaustGlow)">
-            <animate attributeName="points" values="{ov}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/>
-            <animate attributeName="opacity" values="{opv}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/>
-            <animate attributeName="opacity" values="0.85;0.7;0.9;0.75;0.85" dur="0.15s" repeatCount="indefinite"/>
-        </polygon>"""
-        flame_mid = f"""<polygon fill="#ffcc00" opacity="0.9">
-            <animate attributeName="points" values="{mv}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/>
-            <animate attributeName="opacity" values="{opv}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/>
-        </polygon>"""
-        flame_core= f"""<polygon fill="#ffffff" opacity="0.95">
-            <animate attributeName="points" values="{cv}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/>
-            <animate attributeName="opacity" values="{opv}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/>
-        </polygon>"""
-
-        flame_svg = f"""<g>
-            <animateTransform attributeName="transform" type="translate" values="{trans_vals}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/>
-            <g>
-                <animateTransform attributeName="transform" type="rotate" values="{rot_vals}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/>
-                <g>
-                    <animateTransform attributeName="transform" type="rotate" values="{theta_phi_vals}" keyTimes="{key_times}" dur="{T}s" repeatCount="indefinite" calcMode="linear"/>
-                    {flame_ext}{flame_mid}{flame_core}
-                </g>
-            </g>
-        </g>"""
-
-        return body_svg + flame_svg
 
     return (booster_anim,)
+
+
+@app.cell
+def _(M, booster_anim, g, mo, world):
+    # Test de booster_anim
+    def booster_anim_0():
+        x = lambda t: 0.0
+        y = lambda t: 2.0
+        theta = lambda t: 0.0
+        f = lambda t: M * g
+        phi = lambda t: 0.0
+        T = 3.0
+        return booster_anim(x, y, theta, f, phi, T=T)
+
+    mo.Html(
+        world([-3, 3, -2, 4], booster_anim_0())
+    )
+
+    return
 
 
 @app.cell(hide_code=True)
@@ -1442,7 +1561,7 @@ def _(mo):
 
 
 @app.cell
-def _(M, booster_anim, g, mo, np, redstart_solve):
+def _(M, booster_anim, g, mo, np, redstart_solve, world):
     T1 = 4.5
     sol1 = redstart_solve([0.0, T1], [0.0, 0.0, 10.0, 0.0, 0.0, 0.0], lambda t, y: np.array([0.0, 0.0]))
     anim1 = booster_anim(lambda t: float(sol1(t)[0]), lambda t: float(sol1(t)[2]),
@@ -1474,7 +1593,7 @@ def _(M, booster_anim, g, mo, np, redstart_solve):
 
     # ── Rendu final ──
     mo.vstack([
-        mo.md("# 🚀 Redstart : Simulations Style SpaceX"),
+        mo.md("#  Redstart : Simulations Style SpaceX"),
         mo.md("✅ Rotation centrée au CM • ✅ Flamme alignée sur `θ+φ` • ✅ Jambes déployées à `y<2.5m` • ✅ Échappement multi-couches + expansion altitude"),
         mo.hstack([
             mo.vstack([mo.md("### 🌌 1. Chute Libre"), mo.md("Aucune poussée. Chute verticale pure (θ=0)."), mo.Html(world([-3, 3, -2, 12], anim1))], gap=0.4),
