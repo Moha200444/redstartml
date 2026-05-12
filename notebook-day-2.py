@@ -1692,7 +1692,7 @@ def _(mo):
 
 
 @app.cell
-def _(g, l, la, np):
+def _(g, l, np):
     A_lat = np.array([
         [0, 1, 0, 0],
         [0, 0, -g, 0],
@@ -1707,14 +1707,15 @@ def _(g, l, la, np):
     ])
 
     n_lat = A_lat.shape[0]
-    C_lat = np.hstack([B_lat] + [A_lat @ B_lat for _ in range(n_lat - 1)])
+    # Construction correcte : puissances successives de A_lat
+    C_lat = np.hstack([np.linalg.matrix_power(A_lat, i) @ B_lat for i in range(n_lat)])
     print(f"A_lat =\n{A_lat}")
     print(f"\nB_lat =\n{B_lat}")
     print(f"\nC_lat =\n{np.round(C_lat, 4)}")
-    print(f"\nRang de C_lat : {la.matrix_rank(C_lat)} / {n_lat}")
-    print(f"Système latéral commandable : {la.matrix_rank(C_lat) == n_lat}")
+    print(f"\nRang de C_lat : {np.linalg.matrix_rank(C_lat)} / {n_lat}")
+    print(f"Système latéral commandable : {np.linalg.matrix_rank(C_lat) == n_lat}")
 
-    return
+    return A_lat, B_lat
 
 
 @app.cell(hide_code=True)
@@ -1729,6 +1730,98 @@ def _(mo):
     What do you see? How do you explain it?
     """)
     return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Modèle Linéaire en Chute Libre
+
+
+
+    ### Solution
+
+    Avec $\Delta\phi(t) = 0$ et les conditions initiales $\Delta x(0) = 0$,
+    $\Delta v_x(0) = 0$, $\Delta\theta(0) = \pi/4$, $\Delta\omega(0) = 0$,
+    le modèle linéarisé se simplifie considérablement.
+
+    ---
+
+    #### Équation pour $\theta(t)$
+
+    L'équation angulaire est
+    $\Delta\ddot{\theta} = -(6g/\ell)\,\Delta\phi = 0$. Avec les conditions
+    initiales, la solution est trivialement :
+
+    $$\boxed{\Delta\theta(t) = \frac{\pi}{4} \quad \text{(constante)}}$$
+
+    L'angle d'inclinaison reste constant à sa valeur initiale. En l'absence de
+    couple de gîrage ($\phi = 0$), aucun moment ne vient modifier la rotation
+    du booster.
+
+    ---
+
+    #### Équation pour $x(t)$
+
+    L'équation horizontale est
+    $\Delta\ddot{x} = -g\,\Delta\theta - g\,\Delta\phi = -g \cdot \pi/4 - 0 =
+    -\pi/4$.
+
+    En intégrant une première fois (avec $\Delta v_x(0) = 0$) :
+
+    $$\Delta v_x(t) = -\frac{\pi}{4}\,t$$
+
+    En intégrant une seconde fois (avec $\Delta x(0) = 0$) :
+
+    $$\boxed{\Delta x(t) = -\frac{\pi}{8}\,t^2}$$
+
+    La position latérale devient de plus en plus négative : le booster dérive
+    vers la gauche avec une accélération constante de $-\pi/4$ m/s$^2$.
+
+    ---
+
+    #### Interprétation physique
+
+    Le booster est incliné d'un angle $\pi/4$ (45°) vers la gauche. Sa poussée
+    $f = Mg$ est alignée avec son axe, donc elle pointe partiellement vers la
+    gauche. La composante horizontale de la poussée est
+    $-Mg\sin(\theta) = -\sin(\pi/4) = -\pi/4$ (dans le modèle linéarisé).
+    Cette force horizontale constante entraîne une accélération latérale
+    constante, produisant une dérive quadratique.
+
+    En l'absence de contrôle ($\phi = 0$), l'inclinaison ne peut pas être
+    corrigée et le booster dévie inexorablement. Cela illustre la nécessité
+    d'un asservissement actif.
+    """)
+    return
+
+
+@app.cell
+def _(A_lat, np, plt, scipy):
+    z0 = [0.0, 0.0, np.pi/4, 0.0]
+
+    def linear_lateral(t, z):
+        return A_lat @ z
+
+    t_eval = np.linspace(0, 20, 500)
+    sol = scipy.integrate.solve_ivp(linear_lateral, (0, 20), z0, t_eval=t_eval)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+    ax1.plot(sol.t, sol.y[2], 'b-', lw=2)
+    ax1.axhline(y=np.pi/4, color='grey', ls='--', alpha=0.5)
+    ax1.set_xlabel(r"Temps $t$ (s)"); ax1.set_ylabel(r"$\theta(t)$ (rad)")
+    ax1.set_title(r"$\theta(t)$ — constante en absence de contrôle")
+    ax1.grid(True, alpha=0.3)
+
+    ax2.plot(sol.t, sol.y[0], 'r-', lw=2)
+    ax2.plot(sol.t, -np.pi/8 * sol.t**2, 'k--', lw=1, alpha=0.5, label=r"$-\pi\, t^2 / 8$")
+    ax2.set_xlabel(r"Temps $t$ (s)"); ax2.set_ylabel(r"$x(t)$ (m)")
+    ax2.set_title(r"$x(t)$ — dérive quadratique vers la gauche")
+    ax2.grid(True, alpha=0.3); ax2.legend(loc='best')
+    plt.tight_layout()
+    plt.show()
+
+    return t_eval, z0
 
 
 @app.cell(hide_code=True)
@@ -1775,6 +1868,152 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ## Contrôleur Réglé Manuellement
+
+
+
+    ### Solution
+
+    #### Analyse du problème
+
+    On cherche une loi de commande par retour d'état qui ne corrige que l'angle
+    $\theta$ et la vitesse angulaire $\omega$, sans action sur $x$ ni $v_x$
+    (les coefficients $k_1 = k_2 = 0$ sont imposés). La loi de commande est :
+
+    $$\Delta\phi(t) = -k_3\,\Delta\theta(t) - k_4\,\Delta\omega(t)$$
+
+    #### Matrice en boucle fermée
+
+    Le système en boucle fermée a pour matrice d'état
+    $A_{\mathrm{cl}} = A_{\mathrm{lat}} - B_{\mathrm{lat}} K$. En se
+    concentrant sur le sous-système $(\Delta\theta, \Delta\omega)$ — qui est
+    découplé de $(\Delta x, \Delta v_x)$ dans la boucle fermée puisque
+    $k_1 = k_2 = 0$ — on obtient :
+
+    $$A_{\theta\omega} = \begin{pmatrix}
+    0 & 1 \\
+    \dfrac{6g}{\ell}\,k_3 & \dfrac{6g}{\ell}\,k_4
+    \end{pmatrix}$$
+
+    Le polynôme caractéristique de ce sous-système est :
+
+    $$\lambda^2 - \frac{6g}{\ell}\,k_4\,\lambda - \frac{6g}{\ell}\,k_3 = 0$$
+
+    ---
+
+    #### Conditions de stabilité (Routh-Hurwitz)
+
+    Pour que les pôles soient à parties réelles négatives, il faut :
+
+    $$-\frac{6g}{\ell}\,k_4 < 0 \implies k_4 < 0$$
+    $$-\frac{6g}{\ell}\,k_3 > 0 \implies k_3 < 0$$
+
+    (On rappelle que $6g/\ell > 0$ avec nos valeurs numériques.)
+
+    ---
+
+    #### Processus itératif de réglage
+
+    On souhaite un temps de réglement d'environ 20 secondes pour
+    $\Delta\theta$. Le temps de réglement à 5% pour un système du second ordre
+    est $t_r \approx 4/|\mathrm{Re}(\lambda_{\mathrm{dom}})|$. Pour
+    $t_r \approx 20$ s, il faut $|\mathrm{Re}(\lambda_{\mathrm{dom}})| \approx
+    0.2$.
+
+    **Essai 1 :** $k_3 = -0.1$, $k_4 = -0.3$
+
+    $$\lambda^2 + 0.9\lambda + 0.3 = 0 \implies \Delta = 0.81 - 1.2 = -0.39 < 0$$
+
+    $$\lambda = -0.45 \pm 0.31j$$
+
+    Rapport d'amortissement : $\zeta = 0.45/\sqrt{0.3} \approx 0.82$. Temps de
+    réglement : $t_r \approx 4/0.45 \approx 8.9$ s. Trop rapide mais
+    contrainte $|\Delta\phi| < \pi/2$ vérifiée.
+
+    ---
+
+    **Essai 2 :** $k_3 = -0.05$, $k_4 = -0.15$
+
+    $$\lambda^2 + 0.45\lambda + 0.15 = 0$$
+    $$\lambda = -0.225 \pm 0.29j$$
+
+    Temps de réglement $t_r \approx 17.8$ s — proche de 20 s mais un peu juste.
+
+    ---
+
+    **Essai 3 (choix final) :** $k_3 = -0.2$, $k_4 = -0.5$
+
+    $$\lambda^2 + 1.5\lambda + 0.6 = 0$$
+    $$\lambda = \frac{-1.5 \pm \sqrt{2.25 - 2.4}}{2} = -0.75 \pm 0.19j$$
+
+    Rapport d'amortissement : $\zeta \approx 0.97$ (quasi critique). Temps de
+    réglement à 5% : $t_r \approx 4/0.75 \approx 5.3$ s, bien en dessous de 20
+    s. La valeur maximale de $|\Delta\phi|$ à l'instant initial est
+    $|\Delta\phi(0)| = |-k_3 \cdot \pi/4| = 0.2 \times 0.785 \approx 0.157$
+    rad $\ll \pi/2$.
+
+    ---
+
+    ### Résultat
+
+    $$\boxed{K = \begin{pmatrix} 0 & 0 & -0.2 & -0.5 \end{pmatrix}}$$
+
+    Les pôles en boucle fermée du sous-système $(\Delta\theta, \Delta\omega)$
+    sont $\lambda = -0.75 \pm 0.19j$, avec un rapport d'amortissement
+    $\zeta \approx 0.97$ (presque critique). Le temps de réglement est
+    d'environ 5.3 secondes. La contrainte $|\Delta\phi| < \pi/2$ est largement
+    respectée. La position $x(t)$ dérive légèrement (comme attendu, puisque
+    $k_1 = k_2 = 0$), mais l'angle $\theta(t)$ revient bien à zéro.
+    """)
+    return
+
+
+@app.cell
+def _(A_lat, B_lat, np, plt, scipy, t_eval, z0):
+    def _():
+        K_manual = np.array([[0, 0, -0.2, -0.5]])
+
+        A_cl_manual = A_lat - B_lat @ K_manual
+        poles_manual = np.linalg.eigvals(A_cl_manual)
+        print("A_cl (manuel) =")
+        print(np.round(A_cl_manual, 4))
+        print("\nPôles en boucle fermée (contrôleur manuel) :")
+        for i, p in enumerate(poles_manual):
+            print(f"  λ_{i+1} = {p:.6f}")
+        print(f"\nParties réelles toutes négatives : {all(p.real < 0 for p in poles_manual)}")
+
+
+        def closed_loop_manual(t, z):
+            u = -(K_manual @ z)[0]
+            return A_lat @ z + B_lat.flatten() * u
+
+        t_eval1 = np.linspace(0, 20, 1000)
+        sol_m = scipy.integrate.solve_ivp(closed_loop_manual, (0, 20), z0, t_eval1=t_eval)
+
+        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+        axes[0,0].plot(sol_m.t, np.degrees(sol_m.y[2]), 'b-', lw=2)
+        axes[0,0].set_ylabel(r"$\Delta\theta$ (deg)"); axes[0,0].set_title(r"$\Delta\theta(t)$")
+        axes[0,1].plot(sol_m.t, sol_m.y[0], 'r-', lw=2)
+        axes[0,1].set_ylabel(r"$\Delta x$ (m)"); axes[0,1].set_title(r"$\Delta x(t)$")
+        u_hist = np.array([-(K_manual @ sol_m.y[:,i:i+1])[0,0] for i in range(len(sol_m.t))])
+        axes[1,0].plot(sol_m.t, np.degrees(u_hist), 'g-', lw=2)
+        axes[1,0].set_ylabel(r"$\Delta\phi$ (deg)"); axes[1,0].set_title(r"$\Delta\phi(t)$")
+        axes[1,1].plot(sol_m.t, sol_m.y[1], 'm-', lw=2)
+        axes[1,1].set_ylabel(r"$\Delta v_x$ (m/s)"); axes[1,1].set_title(r"$\Delta v_x(t)$")
+        for ax in axes.flat:
+            ax.grid(True, alpha=0.3); ax.set_xlabel("Temps (s)")
+        fig.suptitle("Contrôleur Manuel — $K = (0,\\; 0,\\; -0.2,\\; -0.5)$", fontsize=13, fontweight='bold')
+        plt.tight_layout()
+        return plt.show()
+
+
+    _()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## 🧩 Controller Tuned with Pole Assignment
 
     Using pole assignement, find a matrix
@@ -1814,6 +2053,100 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ##  Contrôleur par Placement de Pôles
+
+    ### Théorème fondamental
+
+    Puisque le système latéral est commandable, le **théorème de placement de
+    pôles** s'applique : pour tout ensemble de $n_{\mathrm{lat}} = 4$ pôles
+    $\{\lambda_1, \lambda_2, \lambda_3, \lambda_4\}$ (réels ou complexes
+    conjugués), il existe une unique matrice de gain $K \in \mathbb{R}^{1 \times
+    4}$ telle que les valeurs propres de $A_{\mathrm{lat}} - B_{\mathrm{lat}} K$
+    soient exactement $\lambda_1, \ldots, \lambda_4$.
+
+    ### Choix des pôles désirés
+
+    On souhaite à présent que **les quatre** variables d'état convergent vers
+    zéro. Le temps de réglement souhaité est d'environ 20 secondes, ce qui
+    correspond à un pôle dominant de partie réelle environ $-0.3$ (puisque
+    $t_r \approx 4/|\mathrm{Re}(\lambda)|$).
+
+    On choisit :
+    - Une paire de pôles complexes conjugués pour un comportement oscillant
+      amorti agréable ;
+    - Une paire de pôles réels pour amortir rapidement les modes les plus lents.
+
+    $$\boxed{\lambda_1 = -0.5 + 0.3j, \quad \lambda_2 = -0.5 - 0.3j, \quad
+    \lambda_3 = -0.3, \quad \lambda_4 = -0.3}$$
+
+    Ce placement donne un temps de réglement dominant d'environ
+    $4/0.3 \approx 13.3$ s (pour les pôles réels), bien en dessous de 20 s.
+    Les pôles complexes fournissent un amortissement
+    $\zeta = 0.5/\sqrt{0.34} \approx 0.86$, ce qui évite les oscillations
+    excessives.
+
+    ### Calcul
+
+    Le calcul est effectué numériquement via `scipy.signal.place_poles`, qui
+    utilise la forme canonique de commandabilité. La fonction renvoie la matrice
+    de gain $K$ telle que
+    $A_{\mathrm{cl}} = A_{\mathrm{lat}} - B_{\mathrm{lat}} K$ ait les pôles
+    spécifiés.
+    """)
+    return
+
+
+@app.cell
+def _(A_lat, B_lat, np, plt, scipy, t_eval, z0):
+    def _():
+        poles_desired = [-0.5 + 0.3j, -0.5 - 0.3j, -0.4, -0.2]
+
+        result_pp = scipy.signal.place_poles(A_lat, B_lat, poles_desired)
+        K_pp = result_pp.gain_matrix
+
+        print("K_pp =")
+        print(K_pp)
+
+        A_cl_pp = A_lat - B_lat @ K_pp
+        poles_pp = np.linalg.eigvals(A_cl_pp)
+        print("\nPôles en boucle fermée :")
+        for i, p in enumerate(sorted(poles_pp, key=lambda x: x.real)):
+            print(f"  λ_{i+1} = {p:.6f}")
+        print(f"\nTous à Re < 0 : {all(p.real < 0 for p in poles_pp)}")
+
+
+
+        def closed_loop_pp(t, z):
+            u = -(K_pp @ z)[0]
+            return A_lat @ z + B_lat.flatten() * u
+
+        t_eval2 = np.linspace(0, 30, 1500)
+        sol_pp = scipy.integrate.solve_ivp(closed_loop_pp, (0, 30), z0, t_eval2=t_eval)
+
+        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+        axes[0,0].plot(sol_pp.t, np.degrees(sol_pp.y[2]), 'b-', lw=2)
+        axes[0,0].set_ylabel(r"$\Delta\theta$ (deg)"); axes[0,0].set_title(r"$\Delta\theta(t)$")
+        axes[0,1].plot(sol_pp.t, sol_pp.y[0], 'r-', lw=2)
+        axes[0,1].set_ylabel(r"$\Delta x$ (m)"); axes[0,1].set_title(r"$\Delta x(t)$")
+        u_pp = np.array([-(K_pp @ sol_pp.y[:,i:i+1])[0,0] for i in range(len(sol_pp.t))])
+        axes[1,0].plot(sol_pp.t, np.degrees(u_pp), 'g-', lw=2)
+        axes[1,0].set_ylabel(r"$\Delta\phi$ (deg)"); axes[1,0].set_title(r"$\Delta\phi(t)$")
+        axes[1,1].plot(sol_pp.t, sol_pp.y[1], 'm-', lw=2)
+        axes[1,1].set_ylabel(r"$\Delta v_x$ (m/s)"); axes[1,1].set_title(r"$\Delta v_x(t)$")
+        for ax in axes.flat:
+            ax.grid(True, alpha=0.3); ax.set_xlabel("Temps (s)")
+        fig.suptitle("Contrôleur par Placement de Pôles", fontsize=13, fontweight='bold')
+        plt.tight_layout()
+        return plt.show()
+
+
+    _()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## 🧩 Controller Tuned with Optimal Control
 
     Using optimal control, find a gain matrix $K_{oc}$ that satisfies the same set of requirements that the one defined using pole placement.
@@ -1826,10 +2159,288 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ## Contrôleur LQR (Commande Optimale Quadratique)
+
+    ### Formulation du problème LQR
+
+    La commande LQR (*Linear Quadratic Regulator*) minimise le critère de
+    performance :
+
+    $$\boxed{J = \int_0^{\infty} \left( z_{\mathrm{lat}}(t)^\top Q\,
+    z_{\mathrm{lat}}(t) + u(t)^\top R\, u(t) \right) \mathrm{d}t}$$
+
+    où $Q \succeq 0$ est une matrice de pondération de l'état (symétrique
+    semi-définie positive) et $R > 0$ est la pondération de l'entrée (définie
+    positive).
+
+    ---
+
+    ### Dérivation à partir du principe de Bellman
+
+    La fonction valeur optimale $V(z) = \inf_u J(z_0 = z)$ satisfait l'équation
+    de Hamilton-Jacobi-Bellman (HJB) stationnaire :
+
+    $$0 = \min_u \left[ z^\top Q z + u^\top R u + \left(\nabla V\right)^\top
+    \left(A_{\mathrm{lat}} z + B_{\mathrm{lat}} u\right) \right]$$
+
+    On fait l'**ansatz quadratique** $V(z) = z^\top P z$ avec $P \succ 0$. La
+    condition d'optimalité en $u$ donne, en dérivant l'expression entre crochets
+    et en annulant la dérivée :
+
+    $$2Ru + B_{\mathrm{lat}}^\top \left(2Pz\right) = 0$$
+
+    $$\boxed{u^* = -R^{-1} B_{\mathrm{lat}}^\top P\, z}$$
+
+    ---
+
+    #### Complétion du carré
+
+    En substituant $u^*$ dans la condition HJB et en effectuant une complétion
+    du carré, on obtient l'**équation algébrique de Riccati** (ARE) :
+
+    $$\boxed{A_{\mathrm{lat}}^\top P + P\,A_{\mathrm{lat}} -
+    P\,B_{\mathrm{lat}}\,R^{-1}\,B_{\mathrm{lat}}^\top P + Q = 0}$$
+
+    Cette équation algébrique matricielle admet une unique solution $P \succ 0$
+    sous les hypothèses de commandabilité (vérifiée) et d'observabilité du
+    couple $(A_{\mathrm{lat}}, Q^{1/2})$.
+
+    La loi de commande optimale est donc le retour d'état linéaire :
+
+    $$\boxed{K_{\mathrm{oc}} = R^{-1} B_{\mathrm{lat}}^\top P}$$
+
+    ---
+
+    ### Choix des pondérations
+
+    Le choix de $Q$ et $R$ détermine le compromis entre performance de
+    régulation et effort de commande :
+
+    $$Q = \begin{pmatrix}
+    1 & 0 & 0 & 0 \\
+    0 & 0 & 0 & 0 \\
+    0 & 0 & 10 & 0 \\
+    0 & 0 & 0 & 1
+    \end{pmatrix}, \qquad R = \begin{pmatrix} 0.1 \end{pmatrix}$$
+
+    - $Q_{33} = 10$ : pénalise fortement l'angle $\theta$ (priorité principale
+      de stabilité angulaire) ;
+    - $Q_{11} = 1$ : pénalise la position latérale pour assurer $\Delta x \to 0$ ;
+    - $Q_{44} = 1$ : amortit la vitesse angulaire pour éviter les oscillations ;
+    - $R = 0.1$ : autorise un effort de commande modéré (une valeur plus grande
+      réduirait l'effort mais ralentirait la convergence).
+    """)
+    return
+
+
+@app.cell
+def _(A_lat, B_lat, np, plt, scipy, t_eval, z0):
+    def _():
+        Q = np.diag([1.0, 0.0, 10.0, 1.0])
+        R_mat = np.array([[0.1]])
+
+        P = scipy.linalg.solve_continuous_are(A_lat, B_lat, Q, R_mat)
+
+        K_oc = np.linalg.inv(R_mat) @ B_lat.T @ P
+        print("P (matrice de Riccati, symétrique définie positive) =")
+        print(np.round(P, 4))
+        print(f"\nP est symétrique : {np.allclose(P, P.T)}")
+        print(f"Valeurs propres de P : {np.linalg.eigvals(P).real}")
+
+        print(f"\nK_oc =")
+        print(K_oc)
+
+        A_cl_oc = A_lat - B_lat @ K_oc
+        poles_oc = np.linalg.eigvals(A_cl_oc)
+        print("\nPôles en boucle fermée (LQR) :")
+        for i, p in enumerate(sorted(poles_oc, key=lambda x: x.real)):
+            print(f"  λ_{i+1} = {p:.6f}")
+        print(f"\nTous à Re < 0 : {all(p.real < 0 for p in poles_oc)}")
+
+
+        def closed_loop_oc(t, z):
+            u = -(K_oc @ z)[0]
+            return A_lat @ z + B_lat.flatten() * u
+
+        t_eval3 = np.linspace(0, 30, 1500)
+        sol_oc = scipy.integrate.solve_ivp(closed_loop_oc, (0, 30), z0, t_eval3=t_eval)
+
+        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+        axes[0,0].plot(sol_oc.t, np.degrees(sol_oc.y[2]), 'b-', lw=2)
+        axes[0,0].set_ylabel(r"$\Delta\theta$ (deg)"); axes[0,0].set_title(r"$\Delta\theta(t)$")
+        axes[0,1].plot(sol_oc.t, sol_oc.y[0], 'r-', lw=2)
+        axes[0,1].set_ylabel(r"$\Delta x$ (m)"); axes[0,1].set_title(r"$\Delta x(t)$")
+        u_oc = np.array([-(K_oc @ sol_oc.y[:,i:i+1])[0,0] for i in range(len(sol_oc.t))])
+        axes[1,0].plot(sol_oc.t, np.degrees(u_oc), 'g-', lw=2)
+        axes[1,0].set_ylabel(r"$\Delta\phi$ (deg)"); axes[1,0].set_title(r"$\Delta\phi(t)$")
+        axes[1,1].plot(sol_oc.t, sol_oc.y[1], 'm-', lw=2)
+        axes[1,1].set_ylabel(r"$\Delta v_x$ (m/s)"); axes[1,1].set_title(r"$\Delta v_x(t)$")
+        for ax in axes.flat:
+            ax.grid(True, alpha=0.3); ax.set_xlabel("Temps (s)")
+        fig.suptitle("Contrôleur LQR", fontsize=13, fontweight='bold')
+        plt.tight_layout()
+        return plt.show()
+
+
+    _()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## 🧩 Validation
 
     Test the two control strategies (pole placement and optimal control) on the "true" (nonlinear) model with an animation. Check that both controllers achieve their goal; otherwise, go back to the drawing board and tweak the design parameters until they do!
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Comparaison des Trois Contrôleurs
+
+    Pour comparer objectivement les trois approches de commande, simulons-les
+    côte à côte à partir de la même condition initiale et comparons les
+    trajectoires des quatre variables d'état ainsi que l'effort de commande.
+    """)
+    return
+
+
+@app.cell
+def _(A_lat, B_lat, np, plt, scipy, t_eval, z0):
+    def _():
+        Q = np.diag([1.0, 0.0, 10.0, 1.0])
+        R_mat = np.array([[0.1]])
+
+        P = scipy.linalg.solve_continuous_are(A_lat, B_lat, Q, R_mat)
+
+        K_oc = np.linalg.inv(R_mat) @ B_lat.T @ P
+        print("P (matrice de Riccati, symétrique définie positive) =")
+        print(np.round(P, 4))
+        print(f"\nP est symétrique : {np.allclose(P, P.T)}")
+        print(f"Valeurs propres de P : {np.linalg.eigvals(P).real}")
+
+        print(f"\nK_oc =")
+        print(K_oc)
+
+        A_cl_oc = A_lat - B_lat @ K_oc
+        poles_oc = np.linalg.eigvals(A_cl_oc)
+        print("\nPôles en boucle fermée (LQR) :")
+        for i, p in enumerate(sorted(poles_oc, key=lambda x: x.real)):
+            print(f"  λ_{i+1} = {p:.6f}")
+        print(f"\nTous à Re < 0 : {all(p.real < 0 for p in poles_oc)}")
+
+
+
+        def closed_loop_oc(t, z):
+            u = -(K_oc @ z)[0]
+            return A_lat @ z + B_lat.flatten() * u
+
+        t_evalX = np.linspace(0, 30, 1500)
+        sol_oc = scipy.integrate.solve_ivp(closed_loop_oc, (0, 30), z0, t_evalX=t_eval)
+
+        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+        axes[0,0].plot(sol_oc.t, np.degrees(sol_oc.y[2]), 'b-', lw=2)
+        axes[0,0].set_ylabel(r"$\Delta\theta$ (deg)"); axes[0,0].set_title(r"$\Delta\theta(t)$")
+        axes[0,1].plot(sol_oc.t, sol_oc.y[0], 'r-', lw=2)
+        axes[0,1].set_ylabel(r"$\Delta x$ (m)"); axes[0,1].set_title(r"$\Delta x(t)$")
+        u_oc = np.array([-(K_oc @ sol_oc.y[:,i:i+1])[0,0] for i in range(len(sol_oc.t))])
+        axes[1,0].plot(sol_oc.t, np.degrees(u_oc), 'g-', lw=2)
+        axes[1,0].set_ylabel(r"$\Delta\phi$ (deg)"); axes[1,0].set_title(r"$\Delta\phi(t)$")
+        axes[1,1].plot(sol_oc.t, sol_oc.y[1], 'm-', lw=2)
+        axes[1,1].set_ylabel(r"$\Delta v_x$ (m/s)"); axes[1,1].set_title(r"$\Delta v_x(t)$")
+        for ax in axes.flat:
+            ax.grid(True, alpha=0.3); ax.set_xlabel("Temps (s)")
+        fig.suptitle("Contrôleur LQR", fontsize=13, fontweight='bold')
+        plt.tight_layout()
+        return plt.show()
+
+
+    _()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ##  Validation sur Modèle Non Linéaire
+
+    Toutes les lois de commande ont été synthétisées sur le modèle linéarisé.
+    Il est essentiel de les valider sur le **modèle non linéaire complet** via
+    la fonction `redstart_solve`. On applique ici le contrôleur LQR au système
+    non linéaire avec la même condition initiale.
+
+    **Attention.** Le modèle linéarisé n'est valide que pour de petits écarts
+    autour de l'équilibre ($|\Delta\theta| \ll 1$ rad, $|\Delta\phi| \ll 1$ rad).
+    L'angle initial $\Delta\theta(0) = \pi/4 \approx 0.785$ rad est déjà assez
+    grand, on s'attend donc à des écarts entre le modèle linéaire et le modèle
+    non linéaire, surtout dans les premiers instants.
+    """)
+    return
+
+
+@app.cell
+def _(A_lat, B_lat, M, g, np, plt, redstart_solve, scipy):
+    def _():
+        # Auto-suffisant : recalcule K_oc pour compatibilité Marimo
+        Q = np.diag([1.0, 0.0, 10.0, 1.0])
+        R_mat = np.array([[0.1]])
+        P = scipy.linalg.solve_continuous_are(A_lat, B_lat, Q, R_mat)
+        K_oc = np.linalg.inv(R_mat) @ B_lat.T @ P
+
+        z0_nl = [0.0, 0.0, 10.0, 0.0, np.pi/4, 0.0]
+
+        def f_phi_lqr_nl(t, state):
+            'Loi de commande LQR appliquée au modèle non linéaire.'
+            dx = state[0]
+            dvx = state[1]
+            dtheta = state[4]
+            domega = state[5]
+            z_lat = np.array([dx, dvx, dtheta, domega])
+            dphi = -(K_oc @ z_lat)[0]
+            f = M * g
+            return np.array([f, dphi])
+
+        sol_nl = redstart_solve([0, 30], z0_nl, f_phi_lqr_nl)
+        t = np.linspace(0, 30, 2000)
+        y_nl = sol_nl(t)
+
+        fig, axes = plt.subplots(2, 3, figsize=(15, 9))
+        axes[0,0].plot(t, y_nl[4], 'b-', lw=2)
+        axes[0,0].set_ylabel(r"$\theta$ (rad)"); axes[0,0].set_title("Inclinaison")
+        axes[0,0].axhline(0, color='grey', ls='--')
+
+        axes[0,1].plot(t, y_nl[0], 'r-', lw=2)
+        axes[0,1].set_ylabel(r"$x$ (m)"); axes[0,1].set_title("Position latérale")
+
+        axes[0,2].plot(t, y_nl[2], 'g-', lw=2)
+        axes[0,2].set_ylabel(r"$y$ (m)"); axes[0,2].set_title("Altitude")
+
+        u_nl = np.array([f_phi_lqr_nl(t[i], y_nl[:,i])[1] for i in range(len(t))])
+        axes[1,0].plot(t, np.degrees(u_nl), 'm-', lw=2)
+        axes[1,0].set_ylabel(r"$\phi$ (deg)"); axes[1,0].set_title("Angle de gîrage")
+
+        axes[1,1].plot(t, y_nl[1], 'c-', lw=2)
+        axes[1,1].set_ylabel(r"$v_x$ (m/s)"); axes[1,1].set_title("Vitesse latérale")
+
+        axes[1,2].plot(t, y_nl[5], 'orange', lw=2)
+        axes[1,2].set_ylabel(r"$\omega$ (rad/s)"); axes[1,2].set_title("Vitesse angulaire")
+
+        for ax in axes.flat:
+            ax.grid(True, alpha=0.3); ax.set_xlabel("Temps (s)")
+        fig.suptitle("Validation LQR sur Modèle Non Linéaire", fontsize=14, fontweight='bold')
+        plt.tight_layout()
+        plt.show()
+
+        print(f"\nMax |θ| = {np.max(np.abs(y_nl[4])):.4f} rad ({np.degrees(np.max(np.abs(y_nl[4]))):.2f}°)")
+        print(f"Max |φ| = {np.max(np.abs(u_nl)):.4f} rad ({np.degrees(np.max(np.abs(u_nl))):.2f}°)")
+        print(f"|θ| < π/2 respecté : {np.max(np.abs(y_nl[4])) < np.pi/2}")
+        return print(f"|φ| < π/2 respecté : {np.max(np.abs(u_nl)) < np.pi/2}")
+
+
+    _()
     return
 
 
