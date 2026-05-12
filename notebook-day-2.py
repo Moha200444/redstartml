@@ -1905,7 +1905,7 @@ def _(mo):
 
     Pour que les pôles soient à parties réelles négatives, il faut :
 
-    $$-\frac{6g}{\ell}\,k_4 < 0 \implies k_4 < 0$$
+    $$-\frac{6g}{\ell}\,k_4 > 0 \implies k_4 < 0$$
     $$-\frac{6g}{\ell}\,k_3 > 0 \implies k_3 < 0$$
 
     (On rappelle que $6g/\ell > 0$ avec nos valeurs numériques.)
