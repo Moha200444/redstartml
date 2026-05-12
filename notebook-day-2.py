@@ -70,8 +70,10 @@ def _():
 
     import numpy as np
     import numpy.linalg as la
+    import scipy.linalg as sci
 
-    return np, plt, scipy
+
+    return la, np, plt, scipy
 
 
 @app.cell(hide_code=True)
@@ -1087,10 +1089,102 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ## Équilibres du Système
+
+
+
+    Un équilibre est un état $s^* = (x^*, 0, y^*, 0, \theta^*, 0)$ tel que
+    $\dot{s} = 0$. En examinant chaque composante du champ de vecteurs
+    $F(s, f, \phi)$, on obtient les conditions suivantes.
+
+    **1. Vitesse nulle.** Par définition d'un équilibre, les dérivées premières
+    de $x$, $y$ et $\theta$ doivent être nulles, donc $v_x = 0$, $v_y = 0$ et
+    $\omega = 0$ — ces conditions sont automatiquement satisfaites par la
+    définition de $s^*$.
+
+    **2. Accélération horizontale nulle.**
+    $$-\frac{f}{M}\sin(\theta + \phi) = 0$$
+    Puisque $f > 0$ et $M > 0$, cela impose $\sin(\theta + \phi) = 0$, donc
+    $\theta + \phi = 0$ (modulo $\pi$). Compte tenu des contraintes
+    $|\theta| < \pi/2$ et $|\phi| < \pi/2$, la seule solution admissible est :
+    $$\phi = -\theta$$
+
+    **3. Accélération verticale nulle.**
+    $$\frac{f}{M}\cos(\theta + \phi) - g = 0$$
+    En utilisant $\theta + \phi = 0$, on obtient $\cos(0) = 1$, donc :
+    $$\frac{f}{M} = g \quad\Longrightarrow\quad f = Mg$$
+
+    **4. Accélération angulaire nulle.**
+    $$-\frac{f}{J}\frac{\ell}{2}\sin\phi = 0$$
+    Puisque $f > 0$, $J > 0$ et $\ell > 0$, cela impose $\sin\phi = 0$, d'où
+    $\phi = 0$ (la contrainte $|\phi| < \pi/2$ exclut $\phi = \pm\pi$).
+
+    **5. Conclusion.** En combinant $\phi = 0$ avec $\theta + \phi = 0$, on
+    obtient $\theta = 0$. De plus, $f = Mg$. Les positions $x^*$ et $y^*$
+    restent arbitraires (le système est invariant par translation). L'équilibre
+    unique (modulo la position) est donc :
+
+    $$\boxed{s^* = (x^*,\; 0,\; y^*,\; 0,\; 0,\; 0), \quad f = Mg, \quad \phi = 0}$$
+
+    Physiquement, le booster est en équilibre lorsqu'il est parfaitement vertical
+    ($\theta = 0$), immobile, et que la poussée compense exactement le poids
+    ($f = Mg$). L'angle de gîrage doit être nul ($\phi = 0$), ce qui est
+    cohérent : toute déviation angulaire créerait un couple non nul et ferait
+    tourner le booster.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## 🧩 Linearized Model
 
     Introduce the error variables $\Delta x$, $\Delta y$, $\Delta \theta$, and $\Delta f$ and $\Delta \phi$ of the state and input values with respect to the generic equilibrium configuration.
     What are the linear ordinary differential equations that govern (approximately) these variables in a neighbourhood of the equilibrium?
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 🧩 11 — Modèle Linéarisé
+
+    On développe $F$ au premier ordre autour de l'équilibre $(s^*, Mg, 0)$ par calcul du Jacobien.
+
+    Jacobien Complet
+
+    **① Translation horizontale :** $M\ddot{x}=-f\sin(\theta+\phi)$
+
+    | Var. | Dérivée partielle | Valeur en $(\theta=0,\phi=0,f=Mg)$ |
+    |------|------------------|---------------------------------|
+    | $f$ | $-\sin(\theta+\phi)$ | $-\sin(0)=0$ |
+    | $\theta$ | $-f\cos(\theta+\phi)$ | $-Mg$ |
+    | $\phi$ | $-f\cos(\theta+\phi)$ | $-Mg$ |
+
+    $$\Longrightarrow\quad \boxed{\Delta\ddot{x} = -g\,\Delta\theta - g\,\Delta\phi}$$
+
+    **② Translation verticale :** $M\ddot{y}=f\cos(\theta+\phi)-Mg$
+
+    | Var. | Dérivée partielle | Valeur en équilibre |
+    |------|------------------|--------------------|
+    | $f$ | $\cos(\theta+\phi)$ | $\cos(0)=1$ |
+    | $\theta$ | $-f\sin(\theta+\phi)$ | $-Mg\sin(0)=0$ |
+    | $\phi$ | $-f\sin(\theta+\phi)$ | $0$ |
+
+    $$\Longrightarrow\quad \boxed{\Delta\ddot{y} = \frac{1}{M}\,\Delta f}$$
+
+    **③ Rotation :** $J\ddot{\theta}=-f(\ell/2)\sin\phi$
+
+    | Var. | Dérivée partielle | Valeur en équilibre |
+    |------|------------------|--------------------|
+    | $f$ | $-(\ell/2)\sin\phi$ | $0$ |
+    | $\phi$ | $-f(\ell/2)\cos\phi$ | $-Mg\ell/2$ |
+
+    $$J\,\Delta\ddot{\theta} = -\frac{Mg\ell}{2}\,\Delta\phi \xrightarrow{J=M\ell^2/12} \boxed{\Delta\ddot{\theta} = -\frac{6g}{\ell}\,\Delta\phi}$$
+
+    *Structure triangulaire :* $\Delta\ddot{\theta}$ dépend uniquement de $\Delta\phi$ ; $\Delta\ddot{x}$ dépend de $\Delta\theta$ et $\Delta\phi$ ; $\Delta\ddot{y}$ est totalement découplée.
     """)
     return
 
@@ -1109,10 +1203,141 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ## Forme Standard : Matrices $A$ et $B$
+
+
+
+    On choisit le vecteur d'état
+    $z = (\Delta x,\; \Delta v_x,\; \Delta y,\; \Delta v_y,\; \Delta \theta,\; \Delta \omega)^\top \in \mathbb{R}^6$
+    et le vecteur d'entrée $u = (\Delta f,\; \Delta \phi)^\top \in \mathbb{R}^2$.
+
+    $$A = \begin{pmatrix}
+    0 & 1 & 0 & 0 & 0 & 0 \\
+    0 & 0 & 0 & 0 & -g & 0 \\
+    0 & 0 & 0 & 1 & 0 & 0 \\
+    0 & 0 & 0 & 0 & 0 & 0 \\
+    0 & 0 & 0 & 0 & 0 & 1 \\
+    0 & 0 & 0 & 0 & 0 & 0
+    \end{pmatrix}, \qquad
+    B = \begin{pmatrix}
+    0 & 0 \\
+    0 & -g \\
+    0 & 0 \\
+    1/M & 0 \\
+    0 & 0 \\
+    0 & -6g/\ell
+    \end{pmatrix}$$
+
+    La structure de $A$ est triangulaire supérieure par blocs : les variables
+    $(\Delta y, \Delta v_y)$ forment un sous-système complètement découplé (double
+    intégrateur pur), tandis que les variables $(\Delta x, \Delta v_x, \Delta \theta,\Delta \omega)$
+    forment un bloc couplé. La matrice $B$ montre que l'entrée $\Delta f$ n'agit
+    que sur $\Delta v_y$ (accélération verticale) et que $\Delta\phi$ agit à la fois
+    sur $\Delta v_x$ et sur $\Delta\omega$ (couple de gîrage). L'angle de gîrage $\phi$
+    est donc le seul moyen d'influencer la dynamique latérale et angulaire.
+    """)
+    return
+
+
+@app.cell
+def _(M, g, l, np):
+    # Matrices A et B
+    A = np.array([
+        [0, 1, 0, 0,  0,        0],
+        [0, 0, 0, 0, -g,        0],
+        [0, 0, 0, 1,  0,        0],
+        [0, 0, 0, 0,  0,        0],
+        [0, 0, 0, 0,  0,        1],
+        [0, 0, 0, 0,  0,        0]
+    ])
+
+    B = np.array([
+        [0,     0       ],
+        [0,    -g       ],
+        [0,     0       ],
+        [1/M,   0       ],
+        [0,     0       ],
+        [0,    -6*g/l   ]
+    ])
+
+    print('A ='); print(A)
+    print('\nB ='); print(B)
+
+    # --- Vérification Az+Bu sur un état-test ---
+    z_t = np.array([0.1, 0.2, 0.3, 0.4, 0.05, 0.0])
+    u_t = np.array([0.5, 0.01])
+    zdot = A @ z_t + B @ u_t
+    print('\nVérification Az + Bu :')
+    print(f'  dz1={zdot[0]:.4f}  attend z2={z_t[1]:.4f}')
+    print(f'  dz2={zdot[1]:.4f}  attend -g*z5+(-g)*u2={-g*z_t[4]+(-g)*u_t[1]:.4f}')
+    print(f'  dz3={zdot[2]:.4f}  attend z4={z_t[3]:.4f}')
+    print(f'  dz4={zdot[3]:.4f}  attend (1/M)*u1={u_t[0]/M:.4f}')
+    print(f'  dz5={zdot[4]:.4f}  attend z6={z_t[5]:.4f}')
+    print(f'  dz6={zdot[5]:.4f}  attend (-6g/l)*u2={-6*g/l*u_t[1]:.4f}')
+
+    return A, B
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## 🧩 Stability
 
     Is the generic equilibrium asymptotically stable?
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Stabilité de l'Équilibre
+
+    L'équilibre en boucle ouverte est-il asymptotiquement stable ?
+
+    ###  Solution — Analyse Spectrale Complète
+
+    **Étape 1 — Polynôme caractéristique.**
+
+    $A$ est une matrice strictement triangulaire supérieure (tous les éléments diagonaux sont nuls). Pour une telle matrice, $\det(\lambda I - A) = \lambda^n$. Ici $n=6$, donc :
+
+    $$\det(\lambda I - A) = \lambda^6$$
+
+    Toutes les valeurs propres valent $\lambda=0$ (multiplicité algébrique = 6).
+
+    **Étape 2 — Multiplicité géométrique.**
+
+    $\dim(\ker A) = n - \mathrm{rg}(A)$. Les colonnes non nulles de $A$ sont la colonne 2 (→ ligne 1), colonne 4 (→ ligne 3), colonne 5 (→ ligne 2), colonne 6 (→ ligne 5) : donc $\mathrm{rg}(A)=4$ et $\dim(\ker A)=2$.
+
+    Multiplicité géométrique (2) $<$ multiplicité algébrique (6) → **blocs de Jordan non triviaux**.
+
+    **Étape 3 — Conséquence pour la stabilité.**
+
+    La solution homogène $e^{At}z_0$ contient des termes polynomiaux $t, t^2, t^3$ qui croissent sans borne. La nilpotence $A^4=0$ (vérifiée ci-dessous) confirme que $e^{At} = I + At + \frac{A^2t^2}{2!} + \frac{A^3t^3}{3!}$ est un polynôme matriciel en $t$ de degré 3.
+
+    $$\boxed{\text{L'équilibre est INSTABLE : dérive polynomiale en }t\text{ en boucle ouverte.}}$$
+    """)
+    return
+
+
+@app.cell
+def _(A, la, np):
+    # Vérification numérique de la nilpotence
+    vals_propres = la.eigvals(A)
+    print(f"Valeurs propres de A : {vals_propres}")
+    print(f"Toutes nulles : {np.allclose(vals_propres, 0)}")
+    print(f"Rang de A : {la.matrix_rank(A)}")
+    print(f"dim(ker A) = {A.shape[0] - la.matrix_rank(A)}")
+
+    A2 = A @ A
+    A3 = A2 @ A
+    A4 = A3 @ A
+    print(f"\nA² = 0 ? {np.allclose(A2, 0)}")
+    print(f"A³ = 0 ? {np.allclose(A3, 0)}")
+    print(f"A⁴ = 0 ? {np.allclose(A4, 0)}")
+    print(f"\nA² (entrées non nulles) :")
+    print(np.round(A2, 4))
+
     return
 
 
@@ -1129,6 +1354,215 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ##  Commandabilité du Modèle Linéarisé Complet
+
+
+
+    ### Solution
+
+    On construit la matrice de commandabilité de Kalman :
+
+    $$\mathcal{C} = \begin{pmatrix} B & AB & A^2B & A^3B & A^4B & A^5B \end{pmatrix} \in \mathbb{R}^{6 \times 12}$$
+
+    On calcule successivement les puissances de $A$ multipliées par $B$.
+
+    ---
+
+    #### Calcul détaillé de $AB$
+
+    La première colonne de $B$, notée $b_1 = (0,\, 0,\, 0,\, 1,\, 0,\, 0)^\top$,
+    correspond à l'effet de $\Delta f$ sur $\dot{z}$. On a $A\,b_1 = A_{:,3}$
+    (la 4\textsuperscript{e} colonne de $A$), car $b_1$ sélectionne la colonne
+    d'indice 3 de $A$ :
+
+    $$A\,b_1 = A\begin{pmatrix}0\\0\\0\\1\\0\\0\end{pmatrix} = \begin{pmatrix}A[0,3]\\A[1,3]\\A[2,3]\\A[3,3]\\A[4,3]\\A[5,3]\end{pmatrix} = \begin{pmatrix}0\\0\\1\\0\\0\\0\end{pmatrix}$$
+
+    car $A[2,3] = 1$ est l'unique entrée non nulle de la colonne 3
+    (l'équation $\dot{\Delta y} = \Delta v_y$).
+
+    La seconde colonne de $B$, notée $b_2 = (0,\, -1,\, 0,\, 0,\, 0,\, -3)^\top$,
+    correspond à l'effet de $\Delta\phi$. On calcule :
+
+    $$A\,b_2 = (-1)\cdot A_{:,1} + (-3)\cdot A_{:,5}$$
+
+    Or $A_{:,1} = (1,\, 0,\, 0,\, 0,\, 0,\, 0)^\top$ (car $A[0,1] = 1$ :
+    $\dot{\Delta x} = \Delta v_x$) et $A_{:,5} = (0,\, 0,\, 0,\, 0,\, 1,\, 0)^\top$
+    (car $A[4,5] = 1$ : $\dot{\Delta\theta} = \Delta\omega$), donc :
+
+    $$A\,b_2 = -\begin{pmatrix}1\\0\\0\\0\\0\\0\end{pmatrix} - 3\begin{pmatrix}0\\0\\0\\0\\1\\0\end{pmatrix} = \begin{pmatrix}-1\\0\\0\\0\\-3\\0\end{pmatrix}$$
+
+    $$\boxed{AB = \begin{pmatrix}
+    0 & -1 \\
+    0 & 0 \\
+    1 & 0 \\
+    0 & 0 \\
+    0 & -3 \\
+    0 & 0
+    \end{pmatrix}}$$
+
+    ---
+
+    #### Calcul détaillé de $A^2B$
+
+    On applique $A$ à chaque colonne de $AB$.
+
+    **Première colonne :** $A \cdot (0,\, 0,\, 1,\, 0,\, 0,\, 0)^\top = A_{:,2}$
+
+    La colonne 2 de $A$ est entièrement nulle : $A[0,2] = A[1,2] = A[2,2] = A[3,2] = A[4,2] = A[5,2] = 0$. En effet, il n'existe pas de terme $\dot{\Delta y} = \Delta y$ dans le modèle (l'équation est $\dot{\Delta y} = \Delta v_y$, pas un terme proportionnel à $\Delta y$). Donc :
+
+    $$A^2B_{:,1} = \mathbf{0}$$
+
+    **Seconde colonne :** $A \cdot (-1,\, 0,\, 0,\, 0,\, -3,\, 0)^\top = (-1)\cdot A_{:,0} + (-3)\cdot A_{:,4}$
+
+    $A_{:,0} = (0,\, 0,\, 0,\, 0,\, 0,\, 0)^\top$ (pas de terme en $\Delta x$ dans les dynamiques)
+    et $A_{:,4} = (0,\, -g,\, 0,\, 0,\, 0,\, 0)^\top$ (car $A[1,4] = -g$ :
+    $\dot{\Delta v_x} = -g\,\Delta\theta$), donc :
+
+    $$A^2B_{:,2} = (-1)\cdot\mathbf{0} + (-3)\begin{pmatrix}0\\-1\\0\\0\\0\\0\end{pmatrix} = \begin{pmatrix}0\\3\\0\\0\\0\\0\end{pmatrix}$$
+
+    $$\boxed{A^2B = \begin{pmatrix}
+    0 & 0 \\
+    0 & 3 \\
+    0 & 0 \\
+    0 & 0 \\
+    0 & 0 \\
+    0 & 0
+    \end{pmatrix}}$$
+
+    ---
+
+    #### Calcul détaillé de $A^3B$
+
+    **Première colonne :** $A \cdot \mathbf{0} = \mathbf{0}$
+
+    **Seconde colonne :** $A \cdot (0,\, 3,\, 0,\, 0,\, 0,\, 0)^\top = 3 \cdot A_{:,1} = 3\begin{pmatrix}1\\0\\0\\0\\0\\0\end{pmatrix} = \begin{pmatrix}3\\0\\0\\0\\0\\0\end{pmatrix}$
+
+    $$\boxed{A^3B = \begin{pmatrix}
+    0 & 3 \\
+    0 & 0 \\
+    0 & 0 \\
+    0 & 0 \\
+    0 & 0 \\
+    0 & 0
+    \end{pmatrix}}$$
+
+    ---
+
+    #### Calcul de $A^4B$ et $A^5B$
+
+    **Première colonne :** $A \cdot \mathbf{0} = \mathbf{0}$
+
+    **Seconde colonne :** $A \cdot (3,\, 0,\, 0,\, 0,\, 0,\, 0)^\top = 3 \cdot A_{:,0} = 3 \cdot \mathbf{0} = \mathbf{0}$
+
+    $$\boxed{A^4B = A^5B = \mathbf{0}_{6 \times 2}}$$
+
+    Ceci est cohérent avec la nilpotence de $A$ ($A^4 = 0$) : au-delà de la
+    puissance 3, l'action de $A$ sur $B$ est identiquement nulle.
+
+    ---
+
+    #### Matrice de commandabilité complète
+
+    $$\mathcal{C} = \begin{pmatrix}
+    0 & 0 & 0 & -1 & 0 & 0 & 0 & 3 & 0 & 0 & 0 & 0 \\
+    0 & -1 & 0 & 0 & 0 & 3 & 0 & 0 & 0 & 0 & 0 & 0 \\
+    0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+    1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+    0 & 0 & 0 & -3 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+    0 & -3 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0
+    \end{pmatrix}$$
+
+    ---
+
+    #### Extraction de 6 vecteurs indépendants
+
+    On identifie six vecteurs linéairement indépendants parmi les colonnes de
+    $\mathcal{C}$ :
+
+    $$\begin{aligned}
+    c_1 &= (0,\, 0,\, 0,\, 1,\, 0,\, 0)^\top \quad \text{(col. 1 de $B$)} \\
+    c_2 &= (0,\, -1,\, 0,\, 0,\, 0,\, -3)^\top \quad \text{(col. 2 de $B$)} \\
+    c_3 &= (0,\, 0,\, 1,\, 0,\, 0,\, 0)^\top \quad \text{(col. 1 de $AB$)} \\
+    c_4 &= (-1,\, 0,\, 0,\, 0,\, -3,\, 0)^\top \quad \text{(col. 2 de $AB$)} \\
+    c_5 &= (0,\, 3,\, 0,\, 0,\, 0,\, 0)^\top \quad \text{(col. 2 de $A^2B$)} \\
+    c_6 &= (3,\, 0,\, 0,\, 0,\, 0,\, 0)^\top \quad \text{(col. 2 de $A^3B$)}
+    \end{aligned}$$
+
+    ---
+
+    #### Preuve d'indépendance linéaire
+
+    Soient $a_1, a_2, a_3, a_4, a_5, a_6 \in \mathbb{R}$ tels que
+    $\sum_{i=1}^{6} a_i\, c_i = 0$. On procède composante par composante
+    (en choisissant l'ordre qui élimine le plus de variables à chaque étape) :
+
+    - **Composante 6** ($\Delta\omega$) : seul $c_2$ a une entrée non nulle,
+      donc $-3a_2 = 0 \implies a_2 = 0$
+
+    - **Composante 4** ($\Delta v_y$) : seul $c_1$ a une entrée non nulle,
+      donc $a_1 = 0$
+
+    - **Composante 3** ($\Delta y$) : seul $c_3$ a une entrée non nulle,
+      donc $a_3 = 0$
+
+    - **Composante 5** ($\Delta\theta$) : seul $c_4$ a une entrée non nulle,
+      donc $-3a_4 = 0 \implies a_4 = 0$
+
+    - **Composante 1** ($\Delta x$) : seuls $c_4$ et $c_6$ contribuent,
+      donc $-a_4 + 3a_6 = 3a_6 = 0 \implies a_6 = 0$
+
+    - **Composante 2** ($\Delta v_x$) : seuls $c_2$ et $c_5$ contribuent,
+      donc $-a_2 + 3a_5 = 3a_5 = 0 \implies a_5 = 0$
+
+    Tous les coefficients sont nuls : les six vecteurs sont linéairement
+    indépendants et forment une base de $\mathbb{R}^6$.
+
+    ---
+
+    ### Résultat
+
+    $$\boxed{\text{Le modèle linéarisé complet est commandable : } \mathrm{rg}(\mathcal{C}) = 6 = n}$$
+
+    D'après le critère de Kalman, le système est donc entièrement commandable.
+    Il est théoriquement possible de conduire le système de n'importe quel état
+    initial vers n'importe quel état désiré en un temps fini, en utilisant les
+    deux entrées $\Delta f$ et $\Delta\phi$.
+
+    ---
+
+    ### Remarque importante sur le code
+
+    La construction de la matrice de commandabilité en Python nécessite d'utiliser
+    les puissances successives de $A$. Le code correct est :
+
+    ```python
+    C = np.hstack([np.linalg.matrix_power(A, i) @ B for i in range(n)])
+    ```
+
+    Une erreur fréquente consiste à écrire
+    `[A @ B for _ in range(n-1)]`, qui calcule $AB$ $n-1$ fois au lieu de
+    $A^2B$, $A^3B$, etc. Cette erreur donnerait un rang de 4 au lieu de 6.
+    """)
+    return
+
+
+@app.cell
+def _(A, B, np):
+    n = A.shape[0]
+    # Construction correcte de la matrice de Kalman avec puissances successives de A
+    C = np.hstack([np.linalg.matrix_power(A, i) @ B for i in range(n)])
+    print(f"Rang de la matrice de commandabilité : {np.linalg.matrix_rank(C)}")
+    print(f"Dimension de l'espace d'état : {n}")
+    print(f"Système commandable : {np.linalg.matrix_rank(C) == n}")
+    print(f"\nMatrice de commandabilité (6 × {C.shape[1]}) :")
+    print(np.round(C, 4))
+
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## 🧩 Lateral Dynamics
 
     We limit our interest in the lateral position $x$, the tilt $\theta$ and their derivatives (we are for the moment fine with letting $y$ and $\dot{y}$ be uncontrolled). We also set $f = M g$ and control the system only with $\phi$.
@@ -1137,6 +1571,149 @@ def _(mo):
 
     - Check the controllability of this new system.
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    \
+    ## 🧩 15 — Dynamique Latérale
+
+    ### Énoncé
+
+    On se limite à la position latérale $x$, à l'inclinaison $\theta$ et à leurs
+    dérivées. On fixe $f = Mg$ et on ne commande le système qu'avec $\phi$.
+    Quelles sont les nouvelles matrices réduites $A_{\mathrm{lat}}$ et
+    $B_{\mathrm{lat}}$ ? Le système réduit est-il commandable ?
+
+    ### Solution
+
+    Puisque l'on fixe $f = Mg$, on a $\Delta f = 0$, donc l'entrée est réduite
+    au scalaire $\Delta\phi$. L'état réduit est $z_{\mathrm{lat}} =
+    (\Delta x,\, \Delta v_x,\, \Delta\theta,\, \Delta\omega)^\top \in
+    \mathbb{R}^4$.
+
+    ---
+
+    #### Équations du système réduit
+
+    En extrayant les lignes et colonnes correspondantes du modèle complet :
+
+    $$\begin{aligned}
+    \dot{\Delta x} &= \Delta v_x \\
+    \dot{\Delta v_x} &= -g\,\Delta\theta - g\,\Delta\phi \\
+    \dot{\Delta\theta} &= \Delta\omega \\
+    \dot{\Delta\omega} &= -\frac{6g}{\ell}\,\Delta\phi
+    \end{aligned}$$
+
+    #### Matrices réduites (forme littérale)
+
+    $$A_{\mathrm{lat}} = \begin{pmatrix}
+    0 & 1 & 0 & 0 \\
+    0 & 0 & -g & 0 \\
+    0 & 0 & 0 & 1 \\
+    0 & 0 & 0 & 0
+    \end{pmatrix}, \qquad
+    B_{\mathrm{lat}} = \begin{pmatrix}
+    0 \\ -g \\ 0 \\ -6g/\ell
+    \end{pmatrix}$$
+
+    #### Matrices numériques ($g = 1$, $\ell = 2$)
+
+    $$A_{\mathrm{lat}} = \begin{pmatrix}
+    0 & 1 & 0 & 0 \\
+    0 & 0 & -1 & 0 \\
+    0 & 0 & 0 & 1 \\
+    0 & 0 & 0 & 0
+    \end{pmatrix}, \qquad
+    B_{\mathrm{lat}} = \begin{pmatrix}
+    0 \\ -1 \\ 0 \\ -3
+    \end{pmatrix}$$
+
+    ---
+
+    ### Vérification de la commandabilité
+
+    La matrice de commandabilité pour le système réduit est :
+
+    $$\mathcal{C}_{\mathrm{lat}} = \begin{pmatrix}
+    B_{\mathrm{lat}} & A_{\mathrm{lat}} B_{\mathrm{lat}} &
+    A_{\mathrm{lat}}^2 B_{\mathrm{lat}} &
+    A_{\mathrm{lat}}^3 B_{\mathrm{lat}}
+    \end{pmatrix} \in \mathbb{R}^{4 \times 4}$$
+
+    On calcule successivement :
+
+    $$\begin{aligned}
+    B_{\mathrm{lat}} &= (0,\; -1,\; 0,\; -3)^\top \\
+    A_{\mathrm{lat}} B_{\mathrm{lat}} &= (-1,\; 0,\; -3,\; 0)^\top \\
+    A_{\mathrm{lat}}^2 B_{\mathrm{lat}} &= (0,\; 3,\; 0,\; 0)^\top \\
+    A_{\mathrm{lat}}^3 B_{\mathrm{lat}} &= (3,\; 0,\; 0,\; 0)^\top
+    \end{aligned}$$
+
+    Explicitement :
+
+    $$\mathcal{C}_{\mathrm{lat}} = \begin{pmatrix}
+    0 & -1 & 0 & 3 \\
+    -1 & 0 & 3 & 0 \\
+    0 & -3 & 0 & 0 \\
+    -3 & 0 & 0 & 0
+    \end{pmatrix}$$
+
+    #### Preuve d'indépendance linéaire
+
+    Soient $a_1, a_2, a_3, a_4$ tels que
+    $a_1 v_1 + a_2 v_2 + a_3 v_3 + a_4 v_4 = 0$ :
+
+    - **Composante 4** ($\Delta\omega$) : $-3a_1 = 0 \implies a_1 = 0$
+    - **Composante 3** ($\Delta\theta$) : $-3a_2 = 0 \implies a_2 = 0$
+    - **Composante 1** ($\Delta x$) : $3a_4 = 0 \implies a_4 = 0$
+    - **Composante 2** ($\Delta v_x$) : $3a_3 = 0 \implies a_3 = 0$
+
+    Tous les coefficients sont nuls : les quatre vecteurs sont linéairement
+    indépendants.
+
+    ---
+
+    ### Résultat
+
+    $$\boxed{\text{Le système latéral est commandable : }
+    \mathrm{rg}(\mathcal{C}_{\mathrm{lat}}) = 4 = n_{\mathrm{lat}}}$$
+
+    Bien que l'on n'ait qu'une seule entrée ($\Delta\phi$) pour commander quatre
+    variables d'état, le système reste entièrement commandable. La raison
+    profonde réside dans la chaîne d'intégrateurs : $\Delta\phi$ influence
+    $\Delta\omega$, qui influence $\Delta\theta$, qui influence $\Delta v_x$,
+    qui influence $\Delta x$. Cette cascade permet « d'atteindre » chaque
+    variable d'état indirectement.
+    """)
+    return
+
+
+@app.cell
+def _(g, l, la, np):
+    A_lat = np.array([
+        [0, 1, 0, 0],
+        [0, 0, -g, 0],
+        [0, 0, 0, 1],
+        [0, 0, 0, 0]
+    ])
+    B_lat = np.array([
+        [0],
+        [-g],
+        [0],
+        [-6*g/l]
+    ])
+
+    n_lat = A_lat.shape[0]
+    C_lat = np.hstack([B_lat] + [A_lat @ B_lat for _ in range(n_lat - 1)])
+    print(f"A_lat =\n{A_lat}")
+    print(f"\nB_lat =\n{B_lat}")
+    print(f"\nC_lat =\n{np.round(C_lat, 4)}")
+    print(f"\nRang de C_lat : {la.matrix_rank(C_lat)} / {n_lat}")
+    print(f"Système latéral commandable : {la.matrix_rank(C_lat) == n_lat}")
+
     return
 
 
