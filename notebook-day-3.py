@@ -2490,7 +2490,7 @@ def _(mo):
     Pour $\alpha = \theta - \pi/2$ : $\cos(\theta-\pi/2) = \sin\theta$, $\sin(\theta-\pi/2) = -\cos\theta$, donc :
 
     $$
-    R\!\left(\theta-\frac{\pi}{2}\right) = \begin{bmatrix} \sin\theta & -(-\cos\theta) \\ -\cos\theta & (\cos\theta)) \end{bmatrix}
+    R\!\left(\theta-\frac{\pi}{2}\right) = \begin{bmatrix} \sin\theta & -(-\cos\theta) \\ -\cos\theta & \sin\theta \end{bmatrix}
     = \begin{bmatrix} \sin\theta & \cos\theta \\ -\cos\theta & \sin\theta \end{bmatrix}
     $$
 
@@ -2845,47 +2845,29 @@ def _(mo):
 def _(M, g, l, np):
     def Tr(x, dx, y, dy, theta, dtheta, z, dz):
         """
-        Transforme l'état complet (booster + système auxiliaire) vers
-        les dérivées successives de la sortie h jusqu'à l'ordre 3.
+        Transforme l'état complet (booster + auxiliaire) vers les dérivées
+        successives de la sortie h jusqu'à l'ordre 3.
 
-        Paramètres
-        ----------
-        x, dx, y, dy  : position et vitesse du centre de masse
-        theta, dtheta  : angle d'inclinaison et vitesse angulaire
-        z, dz          : état du système auxiliaire (z et son taux de variation)
-
-        Retourne
-        --------
-        h_x, h_y           : composantes de h (ordre 0)
-        dh_x, dh_y         : dérivées premières de h
-        d2h_x, d2h_y       : dérivées secondes de h
-        d3h_x, d3h_y       : dérivées troisièmes de h
+        Retourne (h_x, h_y, dh_x, dh_y, d2h_x, d2h_y, d3h_x, d3h_y)
         """
-        # h = (x - l/6*sin(theta), y + l/6*cos(theta))
+        # h = (x - l/6 sinθ, y + l/6 cosθ)
         h_x = x - (l / 6) * np.sin(theta)
         h_y = y + (l / 6) * np.cos(theta)
 
-        # dh/dt = (dx - l/6*cos(theta)*dtheta, dy - l/6*sin(theta)*dtheta)
+        # dh/dt
         dh_x = dx - (l / 6) * np.cos(theta) * dtheta
         dh_y = dy - (l / 6) * np.sin(theta) * dtheta
 
-        # d²h/dt² = z/M * (-sin(theta), cos(theta)) + (0, -g)
-        d2h_x = (z / M) * (-np.sin(theta))
-        d2h_y = (z / M) * np.cos(theta) - g
+        # d²h/dt²  (formules corrigées pour coller à l'image)
+        d2h_x = (z / M) * np.sin(theta)
+        d2h_y = -(z / M) * np.cos(theta) - g
 
-        # d³h/dt³ = dz/M * (-sin(theta), cos(theta)) + z*dtheta/M * (-cos(theta), -sin(theta))
-        d3h_x = (dz / M) * (-np.sin(theta)) + (z * dtheta / M) * (-np.cos(theta))
-        d3h_y = (dz / M) * np.cos(theta) + (z * dtheta / M) * (-np.sin(theta))
+        # d³h/dt³  (formules corrigées)
+        d3h_x = (dz / M) * np.sin(theta) + (z * dtheta / M) * np.cos(theta)
+        d3h_y = -(dz / M) * np.cos(theta) + (z * dtheta / M) * np.sin(theta)
 
         return h_x, h_y, dh_x, dh_y, d2h_x, d2h_y, d3h_x, d3h_y
 
-    # Test de vérification numérique
-    print("Test de Tr avec état neutre (booster vertical, z = -M*g) :")
-    _test = Tr(0, 0, l/2, 0, 0, 0, -M*g, 0)
-    print(f"  h     = ({_test[0]:.4f}, {_test[1]:.4f})  (attendu: (0, {l/2 + l/6:.4f}))")
-    print(f"  dh    = ({_test[2]:.4f}, {_test[3]:.4f})  (attendu: (0, 0))")
-    print(f"  d²h   = ({_test[4]:.4f}, {_test[5]:.4f})  (attendu: (0, 0) car z=-Mg => z/M=-g, -(-g)-g=0)")
-    print(f"  d³h   = ({_test[6]:.4f}, {_test[7]:.4f})  (attendu: (0, 0))")
     return (Tr,)
 
 
@@ -3044,68 +3026,42 @@ def _(mo):
 
 
 @app.cell
-def _(M, Tr, g, l, np):
+def _(M, g, l, np):
     def T_inv(h_x, h_y, dh_x, dh_y, d2h_x, d2h_y, d3h_x, d3h_y):
         """
-        Inverse de la transformation Tr.
-        Reconstruit l'état complet (x, dx, y, dy, theta, dtheta, z, dz)
-        à partir des dérivées de la sortie h jusqu'à l'ordre 3.
-
-        Hypothèse : z < 0 à tout instant.
-
-        Paramètres
-        ----------
-        h_x, h_y           : composantes de h (position du point remarquable)
-        dh_x, dh_y         : dérivée première de h
-        d2h_x, d2h_y       : dérivée seconde de h
-        d3h_x, d3h_y       : dérivée troisième de h
-
-        Retourne
-        --------
-        x, dx, y, dy, theta, dtheta, z, dz
+        Inverse de Tr. Reconstruit (x,dx,y,dy,theta,dtheta,z,dz) à partir
+        des dérivées de h. Hypothèse : z < 0.
         """
-        # Étape 1 : w = d²h + (0, g)
-        w_x = d2h_x          # = (z/M)*(-sin theta)
-        w_y = d2h_y + g      # = (z/M)*cos theta
-
+        # Étape 1 : reconstruction de z et theta
+        w_x = d2h_x
+        w_y = d2h_y + g
         norm_w = np.sqrt(w_x**2 + w_y**2)
 
-        # z < 0 par hypothèse => z/M < 0 => z = -M*||w||
-        z = -M * norm_w
+        z = -M * norm_w                     # z < 0
 
-        # Avec z < 0 :  w_x = (z/M)*(-sin θ) = |z/M|*sin θ
-        #                w_y = (z/M)*cos θ    = -|z/M|*cos θ
-        # Donc : sin θ = w_x/||w||  et  cos θ = -w_y/||w||
-        theta = np.arctan2(w_x, -w_y)
+        # sinθ = -w_x / norm_w,  cosθ =  w_y / norm_w
+        sin_theta = -w_x / norm_w
+        cos_theta =  w_y / norm_w
+        theta = np.arctan2(sin_theta, cos_theta)   # ou np.arctan2(-w_x, w_y)
 
-        # Étape 2 : position (x, y) depuis h et theta
-        x = h_x + (l / 6) * np.sin(theta)
-        y = h_y - (l / 6) * np.cos(theta)
+        # Étape 2 : position (x,y) depuis h
+        x = h_x + (l / 6) * sin_theta
+        y = h_y - (l / 6) * cos_theta
 
-        # Étape 3 : dz et dtheta par projection de h^(3)
-        # Projection sur le vecteur axial (-sin theta, cos theta)
-        dz = M * (-d3h_x * np.sin(theta) + d3h_y * np.cos(theta))
+        # Étape 3 : dz et dtheta par résolution du système linéaire sur d3h
+        #   d3h_x = (dz/M) sinθ + (z dθ/M) cosθ
+        #   d3h_y = -(dz/M) cosθ + (z dθ/M) sinθ
+        A =  sin_theta * d3h_x - cos_theta * d3h_y   # = dz/M
+        B =  cos_theta * d3h_x + sin_theta * d3h_y   # = z dθ/M
+        dz = M * A
+        dtheta = (M / z) * B
 
-        # Projection sur (-cos theta, -sin theta)
-        # z*dtheta/M = -d3h_x*cos(theta) - d3h_y*sin(theta)
-        dtheta = (M / z) * (-d3h_x * np.cos(theta) - d3h_y * np.sin(theta))
-
-        # Étape 4 : vitesses (dx, dy) depuis dh et (theta, dtheta)
-        dx = dh_x + (l / 6) * np.cos(theta) * dtheta
-        dy = dh_y + (l / 6) * np.sin(theta) * dtheta
+        # Étape 4 : vitesses (dx,dy) depuis dh
+        dx = dh_x + (l / 6) * cos_theta * dtheta
+        dy = dh_y + (l / 6) * sin_theta * dtheta
 
         return x, dx, y, dy, theta, dtheta, z, dz
 
-    # ── Vérification de la cohérence Tr ∘ T_inv = Id ──────────────────────────
-    print("Vérification de T_inv ∘ Tr = Id :")
-    import numpy as _np
-    _state_test = (2.0, 0.5, 10.0, -1.0, _np.pi/6, 0.1, -2.0, 0.3)
-    _out = Tr(*_state_test)
-    _rec  = T_inv(*_out)
-    _labels = ("x", "dx", "y", "dy", "theta", "dtheta", "z", "dz")
-    for _name, _orig, _reconstructed in zip(_labels, _state_test, _rec):
-        print(f"  {_name:7s}: original = {_orig:8.4f}, reconstruit = {_reconstructed:8.4f}, "
-              f"erreur = {abs(_orig - _reconstructed):.2e}")
     return (T_inv,)
 
 
@@ -3148,7 +3104,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### 🔓 Solution (version simplifiée)
+    ###  Solution
 
     **Idée générale :**
     On ne travaille plus directement avec les variables complexes du booster, mais avec les dérivées de \(h\) (les coordonnées transformées).
@@ -3615,6 +3571,11 @@ def _(M, booster_anim, compute, g, l, mo, np, plt, world):
     return
 
 
+@app.cell
+def _():
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -3638,6 +3599,18 @@ def _(mo):
 
     La linéarisation exacte transforme le problème de planification de trajectoire non-linéaire en un simple problème d'interpolation polynomiale. L'idée clé est que le point $h$ — situé à $\ell/6$ du centre de masse dans la direction axiale — est un point remarquable (centre de percussion) dont la dynamique se découple naturellement en deux intégrateurs quadruples indépendants. La trajectoire résultante est une solution **exacte** des équations du mouvement non-linéaires (pas une approximation linéarisée).
     """)
+    return
+
+
+@app.cell
+def _(Tr):
+    Tr(1,2,3,4,0.1,0.2,-0.3,-0.4)
+    return
+
+
+@app.cell
+def _(T_inv, Tr):
+    T_inv(*Tr(1,2,3,4,0.1,0.2,-0.3,-0.4))
     return
 
 
