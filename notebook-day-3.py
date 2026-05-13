@@ -2254,32 +2254,91 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ###  Solution
+    ###Définition Mathématique
 
-    **Interprétation géométrique de $h$**
-
-    Le centre de masse du booster est au point $(x, y)$. La base du booster (où se trouve le réacteur) est située à une distance $\ell/2$ du centre de masse, dans la direction $-\hat{u}$ où $\hat{u}$ est le vecteur unitaire axial du booster :
+    Le point $h$ est défini dans l'espace d'état par la relation vectorielle suivante :
 
     $$
-    \text{base} = \begin{bmatrix} x \\ y \end{bmatrix} + \frac{\ell}{2} \begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix}^{\perp} = \begin{bmatrix} x - \frac{\ell}{2}\sin\theta \\ y - \frac{\ell}{2}\cos\theta \end{bmatrix}
+    h =
+    \begin{bmatrix}
+    x \\
+    y
+    \end{bmatrix}
+    +
+    \frac{\ell}{6}
+    \begin{bmatrix}
+    -\sin\theta \\
+    \cos\theta
+    \end{bmatrix}
     $$
 
-    Le point $h$ se trouve à $\ell/6$ **au-dessus** du centre de masse le long de l'axe du booster :
+    Où :
+
+    - $\begin{bmatrix} x & y \end{bmatrix}^T$ est la position du Centre de Masse ($CM$) du booster.
+    - $\ell$ est la longueur totale du booster (ici $\ell = 2 \,\text{m}$).
+    - $\theta$ est l'angle d'inclinaison par rapport à la verticale.
+
+    Le vecteur unitaire dirigé selon l'axe du booster est :
 
     $$
-    h = \begin{bmatrix} x - \frac{\ell}{6}\sin\theta \\ y + \frac{\ell}{6}\cos\theta \end{bmatrix}
+    \vec{u}_{\theta} =
+    \begin{bmatrix}
+    -\sin\theta \\
+    \cos\theta
+    \end{bmatrix}
     $$
 
-    Rappelons que le vecteur unitaire axial du booster (dirigé vers le haut depuis la base) est :
+    Il pointe du centre vers le sommet du booster.
+    ###Localisation Physique
+    Le point $h$ se situe sur l'axe longitudinal du booster, à une distance de
+
     $$
-    \hat{u} = \begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix}
+    \frac{\ell}{6}
     $$
 
-    Donc $h = (x,y) + \frac{\ell}{6}\,\hat{u}$, c'est-à-dire le point situé à $\ell/6$ du centre de masse **dans la direction du sommet** du booster.
+    au-dessus du centre de masse.
 
-    **En termes physiques :** Pour un booster de longueur $\ell = 2$ m avec masse uniformément distribuée, le moment d'inertie est $J = \frac{1}{12}M\ell^2$. Le point $h$ est donc situé à $\frac{\ell}{6} = \frac{J}{M \cdot \ell/2}$ du centre : c'est le **centre de percussion** du booster par rapport au point d'application de la force (la base), souvent appelé *centre d'oscillation*.
+    Sachant que le centre de masse se trouve à
 
-    **Géométriquement :** $h$ est le point du booster qui, lorsque la force est appliquée à la base avec $\phi = 0$ (dans l'axe), n'a pas d'accélération latérale instantanée. C'est pourquoi ce point se prête naturellement à la linéarisation exacte.
+    $$
+    \frac{\ell}{2}
+    $$
+
+    de la base, la distance totale de $h$ par rapport au réacteur est :
+
+    $$
+    d(h,\text{base})
+    =
+    \frac{\ell}{2}
+    +
+    \frac{\ell}{6}
+    =
+    \frac{2\ell}{3}
+    $$
+
+    ###Rôle dans la Linéarisation Exacte
+
+    Ce point, appelé **centre de percussion**, possède une propriété fondamentale en automatique : il est découplé.
+
+    En dérivant deux fois $h$ par rapport au temps, l'accélération angulaire $\ddot{\theta}$ et les forces de poussée se combinent de telle sorte que les termes non-linéaires s'annulent.
+
+    Cela permet de transformer la dynamique complexe du booster en un système de double intégrateur simple :
+
+    $$
+    \ddot{h} = v
+    $$
+
+    où
+
+    $$
+    v =
+    \begin{bmatrix}
+    v_1 \\
+    v_2
+    \end{bmatrix}
+    $$
+
+    est la nouvelle commande linéaire.
     """)
     return
 
@@ -3307,10 +3366,10 @@ def _(mo):
 
 
 @app.cell
-def _(M, compute, g, l, mo, np, plt):
+def _(M, booster_anim, compute, g, l, mo, np, plt, world):
     def graphical_validation():
         tf = 10.0
-        t = np.linspace(0, tf, 500)
+        t = np.linspace(0, tf, 1000)
 
         # Conditions initiales et finales
         x_0, dx_0, y_0, dy_0          = 5.0, 0.0, 20.0, -1.0
@@ -3331,74 +3390,178 @@ def _(M, compute, g, l, mo, np, plt):
         z_t, dz_t             = traj[6], traj[7]
         f_t, phi_t            = traj[8], traj[9]
 
-        # ── Tracé ────────────────────────────────────────────────────────────
-        fig, axes = plt.subplots(5, 1, figsize=(12, 14), sharex=True)
+        # Sortie plate h(t) = (hx, hy)  (centre de percussion)
+        hx_t = x_t - (l / 6) * np.sin(theta_t)
+        hy_t = y_t + (l / 6) * np.cos(theta_t)
 
-        # Position
-        axes[0].plot(t, x_t, label=r"$x(t)$", color="royalblue")
-        axes[0].plot(t, y_t, label=r"$y(t)$", color="tomato")
-        axes[0].axhline(l / 2, color="grey", ls="--", lw=0.8, label=r"$y=\ell/2$ (sol)")
-        axes[0].set_ylabel("Position (m)")
-        axes[0].legend(loc="upper right"); axes[0].grid(True)
+        # ── Figure 3×2 ─────────────────────────────────────────
+        fig = plt.figure(figsize=(15, 18))
+        gs = fig.add_gridspec(
+            3, 2, hspace=0.45, wspace=0.30, height_ratios=[1.2, 1, 1],
+        )
 
-        # Vitesse
-        axes[1].plot(t, dx_t, label=r"$\dot{x}(t)$", color="royalblue")
-        axes[1].plot(t, dy_t, label=r"$\dot{y}(t)$", color="tomato")
-        axes[1].set_ylabel("Vitesse (m/s)")
-        axes[1].legend(loc="upper right"); axes[1].grid(True)
+        # ── 1. Trajectoire 2D ────────────────────────────────
+        ax_traj = fig.add_subplot(gs[0, 0])
 
-        # Angle theta
-        axes[2].plot(t, np.degrees(theta_t), label=r"$\theta(t)$ (°)", color="darkorange")
-        axes[2].axhline(-22.5, color="grey", ls="--", lw=0.8, label=r"$\theta_0 = -\pi/8$")
-        axes[2].axhline(0, color="black", ls=":", lw=0.8)
-        axes[2].set_ylabel("Angle θ (°)")
-        axes[2].legend(loc="upper right"); axes[2].grid(True)
+        # Sol + zone d'atterrissage
+        ax_traj.axhline(0, color="saddlebrown", lw=2)
+        ax_traj.fill_between([-3, 8], -1.5, 0, color="saddlebrown", alpha=0.25)
+        ax_traj.plot([-1, 1], [0, 0], color="forestgreen", lw=6,
+                     alpha=0.7, solid_capstyle="butt", zorder=2)
 
-        # Force f et angle phi
-        axes[3].plot(t, f_t, label=r"$f(t)$", color="purple")
-        axes[3].axhline(M * g, color="grey", ls="--", lw=0.8, label=r"$f = Mg$")
-        axes[3].set_ylabel("Force $f$ (N)")
-        axes[3].legend(loc="upper right"); axes[3].grid(True)
+        # Trace du CdG
+        ax_traj.plot(x_t, y_t, "k-", lw=1, alpha=0.35, zorder=1,
+                     label="Trajectoire CdG")
 
-        axes[4].plot(t, np.degrees(phi_t), label=r"$\phi(t)$ (°)", color="green")
-        axes[4].axhline(90, color="red", ls="--", lw=0.8, label=r"$\pm 90°$")
-        axes[4].axhline(-90, color="red", ls="--", lw=0.8)
-        axes[4].axhline(0, color="black", ls=":", lw=0.8)
-        axes[4].set_ylabel("Angle φ (°)")
-        axes[4].set_xlabel(r"Temps $t$ (s)")
-        axes[4].legend(loc="upper right"); axes[4].grid(True)
+        # Snapshots du booster tous les ~0.4 s
+        n_snaps = 25
+        for i in np.linspace(0, len(t) - 1, n_snaps, dtype=int):
+            xi, yi, thi = x_t[i], y_t[i], theta_t[i]
+            c, s = np.cos(thi), np.sin(thi)
+            xt = xi - (l / 2) * s;  yt = yi + (l / 2) * c
+            xb = xi + (l / 2) * s;  yb = yi - (l / 2) * c
+            alpha = 0.12 + 0.75 * i / (len(t) - 1)
+            ax_traj.plot([xb, xt], [yb, yt], color="steelblue", lw=2.5,
+                         alpha=alpha, solid_capstyle="round", zorder=3)
+            # flamme (proportionnelle à f)
+            fi = f_t[i]
+            flame_len = 0.4 * (fi / M / g)  # échelle visuelle
+            fx = xb - flame_len * s;  fy = yb - flame_len * c
+            ax_traj.plot([xb, fx], [yb, fy], color="orangered", lw=1.8,
+                         alpha=alpha * 0.8, solid_capstyle="round", zorder=3)
+
+        ax_traj.plot(x_0, y_0, "go", ms=10, zorder=5, label="Départ")
+        ax_traj.plot(x_tf, y_tf, "r^", ms=10, zorder=5, label="Arrivée")
+        ax_traj.set_xlabel("$x$ (m)")
+        ax_traj.set_ylabel("$y$ (m)")
+        ax_traj.set_title("Trajectoire 2D du booster")
+        ax_traj.set_aspect("equal")
+        ax_traj.set_xlim(-3, 8)
+        ax_traj.legend(loc="upper right", fontsize=9)
+        ax_traj.grid(True, alpha=0.25)
+
+        # ── 2. Sortie plate h(t) ────────────────────────────
+        ax_h = fig.add_subplot(gs[0, 1])
+        ax_h.plot(t, hx_t, label=r"$h_x(t)$", color="royalblue", lw=1.5)
+        ax_h.plot(t, hy_t, label=r"$h_y(t)$", color="tomato", lw=1.5)
+        ax_h.axhline(l / 2, color="grey", ls="--", lw=0.8, alpha=0.6,
+                     label=r"$y = \ell/2$ (sol)")
+        ax_h.set_ylabel("Position (m)")
+        ax_h.set_title(r"Sortie plate $h(t)$ (centre de percussion, $\ell/3$ du bas)")
+        ax_h.legend(loc="best", fontsize=9)
+        ax_h.grid(True, alpha=0.25)
+
+        # ── 3. Position ─────────────────────────────────────
+        ax_pos = fig.add_subplot(gs[1, 0])
+        ax_pos.plot(t, x_t, label=r"$x(t)$", color="royalblue", lw=1.5)
+        ax_pos.plot(t, y_t, label=r"$y(t)$", color="tomato", lw=1.5)
+        ax_pos.axhline(l / 2, color="grey", ls="--", lw=0.8, alpha=0.6,
+                       label=r"$y=\ell/2$ (sol)")
+        ax_pos.axhline(2 * l / 3, color="red", ls=":", lw=0.8, alpha=0.6,
+                       label=r"$y_f = 2\ell/3$ (cible)")
+        ax_pos.plot(0, x_0, "go", ms=7, zorder=5)
+        ax_pos.plot(tf, x_tf, "r^", ms=7, zorder=5)
+        ax_pos.plot(0, y_0, "go", ms=7, zorder=5)
+        ax_pos.plot(tf, y_tf, "r^", ms=7, zorder=5)
+        ax_pos.set_ylabel("Position (m)")
+        ax_pos.set_title("Position du centre de gravité")
+        ax_pos.legend(loc="best", fontsize=9)
+        ax_pos.grid(True, alpha=0.25)
+
+        # ── 4. Vitesse ─────────────────────────────────────
+        ax_vel = fig.add_subplot(gs[1, 1])
+        ax_vel.plot(t, dx_t, label=r"$\dot{x}(t)$", color="royalblue", lw=1.5)
+        ax_vel.plot(t, dy_t, label=r"$\dot{y}(t)$", color="tomato", lw=1.5)
+        ax_vel.axhline(0, color="black", ls=":", lw=0.8)
+        ax_vel.plot(0, dx_0, "go", ms=7, zorder=5)
+        ax_vel.plot(0, dy_0, "go", ms=7, zorder=5)
+        ax_vel.plot(tf, dx_tf, "r^", ms=7, zorder=5)
+        ax_vel.plot(tf, dy_tf, "r^", ms=7, zorder=5)
+        ax_vel.set_ylabel("Vitesse (m/s)")
+        ax_vel.set_title("Vitesse du centre de gravité")
+        ax_vel.legend(loc="best", fontsize=9)
+        ax_vel.grid(True, alpha=0.25)
+
+        # ── 5. Angle θ ─────────────────────────────────────
+        ax_th = fig.add_subplot(gs[2, 0])
+        ax_th.plot(t, np.degrees(theta_t), color="darkorange", lw=2,
+                   label=r"$\theta(t)$")
+        ax_th.axhline(-22.5, color="grey", ls="--", lw=0.8,
+                      label=r"$\theta_0 = -22.5°$")
+        ax_th.axhline(0, color="black", ls=":", lw=0.8)
+        ax_th.plot(0, np.degrees(theta_0), "go", ms=7, zorder=5)
+        ax_th.plot(tf, 0, "r^", ms=7, zorder=5)
+        ax_th.set_ylabel("Angle (°)")
+        ax_th.set_xlabel(r"Temps $t$ (s)")
+        ax_th.set_title(r"Inclinaison $\theta(t)$ du booster")
+        ax_th.legend(loc="best", fontsize=9)
+        ax_th.grid(True, alpha=0.25)
+
+        # ── 6. Force f et angle φ ──────────────────────────
+        ax_f = fig.add_subplot(gs[2, 1])
+        ax_f.plot(t, f_t, label=r"$f(t)$", color="purple", lw=2)
+        ax_f.axhline(M * g, color="grey", ls="--", lw=0.8,
+                     label=r"$Mg$ (pesanteur)")
+        ax_f.fill_between(t, 0, np.minimum(f_t, 0), color="red", alpha=0.12,
+                          label=r"$f < 0$ (interdit)")
+        ax_f.set_ylabel("Force $f$ (N)", color="purple")
+        ax_f.tick_params(axis="y", labelcolor="purple")
+
+        ax_p = ax_f.twinx()
+        ax_p.plot(t, np.degrees(phi_t), color="seagreen", lw=2, ls="--",
+                  label=r"$\phi(t)$")
+        ax_p.axhline(90, color="red", ls=":", lw=0.8, alpha=0.5)
+        ax_p.axhline(-90, color="red", ls=":", lw=0.8, alpha=0.5)
+        ax_p.axhline(0, color="black", ls=":", lw=0.5)
+        ax_p.set_ylabel(r"Angle $\phi$ (°)", color="seagreen")
+        ax_p.tick_params(axis="y", labelcolor="seagreen")
+
+        ax_f.set_xlabel(r"Temps $t$ (s)")
+        ax_f.set_title("Commandes : poussée $f$ et angle de cardan $\phi$")
+        h1, l1 = ax_f.get_legend_handles_labels()
+        h2, l2 = ax_p.get_legend_handles_labels()
+        ax_f.legend(h1 + h2, l1 + l2, loc="best", fontsize=9)
+        ax_f.grid(True, alpha=0.25)
 
         fig.suptitle(
             "Trajectoire admissible par linéarisation exacte\n"
-            r"$(x_0,y_0,\theta_0)=(5, 20, -\pi/8)$ → $(x_f,y_f,\theta_f)=(0, 2\ell/3, 0)$",
-            fontsize=12,
+            r"$(x_0, y_0, \theta_0) = (5,\;20,\;-\pi/8)$"
+            r"$\;\longrightarrow\;$"
+            r"$(x_f, y_f, \theta_f) = (0,\;2\ell/3,\;0)$,"
+            f"  $T = {tf}$ s",
+            fontsize=13, fontweight="bold", y=0.99,
         )
-        plt.tight_layout()
 
-        # ── Vérification des conditions aux bords ────────────────────────────
-        print("=== Vérification des conditions aux bords ===")
-        s0 = fun(0.0)
-        sf = fun(tf)
-        labels = ["x", "dx", "y", "dy", "theta", "dtheta", "z", "dz", "f", "phi"]
-        target_i = [x_0, dx_0, y_0, dy_0, theta_0, dtheta_0, z_0, dz_0, None, None]
-        target_f = [x_tf, dx_tf, y_tf, dy_tf, theta_tf, dtheta_tf, z_tf, dz_tf, None, None]
-        for k, (name, ti, tf_val) in enumerate(zip(labels, target_i, target_f)):
-            line = f"  {name:8s}: t=0 → {s0[k]:8.4f}"
-            if ti is not None:
-                line += f"  (cible: {ti:8.4f}, err: {abs(s0[k]-ti):.1e})"
-            line += f" | t=tf → {sf[k]:8.4f}"
-            if tf_val is not None:
-                line += f"  (cible: {tf_val:8.4f}, err: {abs(sf[k]-tf_val):.1e})"
+        # ── Vérification des conditions aux bords ───────────
+        print("=== Conditions aux bords ===")
+        s0, sf = fun(0.0), fun(tf)
+        names  = ["x", "dx", "y", "dy", "theta", "dtheta", "z", "dz", "f", "phi"]
+        c_i    = [x_0, dx_0, y_0, dy_0, theta_0, dtheta_0, z_0, dz_0, None, None]
+        c_f    = [x_tf, dx_tf, y_tf, dy_tf, theta_tf, dtheta_tf, z_tf, dz_tf, None, None]
+        for k, (nm, ci_k, cf_k) in enumerate(zip(names, c_i, c_f)):
+            line = f"  {nm:8s}:  t=0 → {s0[k]:10.6f}"
+            if ci_k is not None:
+                line += f"  (cible {ci_k:9.4f}  err {abs(s0[k] - ci_k):.2e})"
+            line += f"  |  t=T → {sf[k]:10.6f}"
+            if cf_k is not None:
+                line += f"  (cible {cf_k:9.4f}  err {abs(sf[k] - cf_k):.2e})"
             print(line)
+
+        # ── Contraintes physiques ───────────────────────────
+        print("\n=== Contraintes physiques ===")
+        f_viol = f_t.min() < 0
+        phi_viol = np.max(np.abs(phi_t)) >= np.pi / 2
+        print(f"  f_min = {f_t.min():+.4f}   {'✓ f ≥ 0' if not f_viol else '✗ VIOLATION f < 0 !'}")
+        print(f"  f_max = {f_t.max():+.4f}")
+        print(f"  |φ|_max = {np.max(np.abs(phi_t)) * 180 / np.pi:.2f}°"
+              f"   {'✓ |φ| < 90°' if not phi_viol else '✗ VIOLATION |φ| ≥ 90° !'}")
 
         return mo.center(fig)
 
+
     graphical_validation()
-    return
 
 
-@app.cell
-def _(M, booster_anim, compute, g, l, mo, np, world):
     def animation_validation():
         """Animation de la trajectoire calculée par linéarisation exacte."""
         tf = 10.0
@@ -3414,6 +3577,25 @@ def _(M, booster_anim, compute, g, l, mo, np, world):
             tf,
         )
 
+        # Boîte de vue adaptée à la trajectoire
+        t_dense = np.linspace(0, tf, 500)
+        traj = fun(t_dense)
+        x_all, y_all = traj[0], traj[2]
+        margin = 3
+        x_lo = min(x_all.min(), x_0, x_tf) - margin
+        x_hi = max(x_all.max(), x_0, x_tf) + margin
+        y_lo = -1.5            # on veut voir le sol
+        y_hi = max(y_all.max(), y_0, y_tf) + margin
+
+        # Ajustement pour que l'aspect ratio ne soit pas trop écrasé
+        # (garder au moins un ratio x/y raisonnable)
+        span_x = x_hi - x_lo
+        span_y = y_hi - y_lo
+        if span_y > 3 * span_x:
+            mid_x = (x_lo + x_hi) / 2
+            half = span_y / 3
+            x_lo, x_hi = mid_x - half, mid_x + half
+
         x     = lambda t: fun(t)[0]
         y     = lambda t: fun(t)[2]
         theta = lambda t: fun(t)[4]
@@ -3422,12 +3604,14 @@ def _(M, booster_anim, compute, g, l, mo, np, world):
 
         return mo.Html(
             world(
-                [-6, 10, -2, 25],
+                [x_lo, x_hi, y_lo, y_hi],
                 booster_anim(x, y, theta, f, phi, T=tf),
             )
         ).center()
 
+
     animation_validation()
+
     return
 
 
