@@ -2254,9 +2254,225 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ###  Solution
+
+    **Interprétation géométrique de $h$**
+
+    Le centre de masse du booster est au point $(x, y)$. La base du booster (où se trouve le réacteur) est située à une distance $\ell/2$ du centre de masse, dans la direction $-\hat{u}$ où $\hat{u}$ est le vecteur unitaire axial du booster :
+
+    $$
+    \text{base} = \begin{bmatrix} x \\ y \end{bmatrix} + \frac{\ell}{2} \begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix}^{\perp} = \begin{bmatrix} x - \frac{\ell}{2}\sin\theta \\ y - \frac{\ell}{2}\cos\theta \end{bmatrix}
+    $$
+
+    Le point $h$ se trouve à $\ell/6$ **au-dessus** du centre de masse le long de l'axe du booster :
+
+    $$
+    h = \begin{bmatrix} x - \frac{\ell}{6}\sin\theta \\ y + \frac{\ell}{6}\cos\theta \end{bmatrix}
+    $$
+
+    Rappelons que le vecteur unitaire axial du booster (dirigé vers le haut depuis la base) est :
+    $$
+    \hat{u} = \begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix}
+    $$
+
+    Donc $h = (x,y) + \frac{\ell}{6}\,\hat{u}$, c'est-à-dire le point situé à $\ell/6$ du centre de masse **dans la direction du sommet** du booster.
+
+    **En termes physiques :** Pour un booster de longueur $\ell = 2$ m avec masse uniformément distribuée, le moment d'inertie est $J = \frac{1}{12}M\ell^2$. Le point $h$ est donc situé à $\frac{\ell}{6} = \frac{J}{M \cdot \ell/2}$ du centre : c'est le **centre de percussion** du booster par rapport au point d'application de la force (la base), souvent appelé *centre d'oscillation*.
+
+    **Géométriquement :** $h$ est le point du booster qui, lorsque la force est appliquée à la base avec $\phi = 0$ (dans l'axe), n'a pas d'accélération latérale instantanée. C'est pourquoi ce point se prête naturellement à la linéarisation exacte.
+    """)
+    return
+
+
+@app.cell
+def _():
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+
+    # Paramètres
+    longueur = 10.0          # ℓ (longueur totale du booster)
+    theta_deg = 30.0         # angle d'inclinaison par rapport à la verticale (degrés)
+    theta = np.radians(theta_deg)
+
+    # Vecteur direction (du réacteur vers le sommet)
+    dir_vec = np.array([np.sin(theta), np.cos(theta)])
+
+    # Points géométriques
+    reacteur = np.array([0.0, 0.0])                     # point d'appui (bas)
+    sommet = reacteur + longueur * dir_vec              # sommet
+    G = sommet - (longueur / 6) * dir_vec               # centre de masse (à ℓ/6 du sommet)
+    h = reacteur + (2 * longueur / 3) * dir_vec         # centre de percussion (à 2ℓ/3 du réacteur)
+
+    # Création de la figure
+    fig, ax = plt.subplots(figsize=(9, 9))
+    ax.set_aspect('equal')
+    ax.grid(True, linestyle='--', alpha=0.4)
+
+    # Tracé du booster (ligne principale)
+    ax.plot([reacteur[0], sommet[0]], [reacteur[1], sommet[1]],
+            'k-', linewidth=3, label='Booster')
+
+    # Marquage des points
+    ax.plot(reacteur[0], reacteur[1], 'ro', markersize=8, label='Réacteur (point d\'appui)')
+    ax.plot(sommet[0], sommet[1], 'go', markersize=8, label='Sommet')
+    ax.plot(G[0], G[1], 'bo', markersize=8, label='Centre de masse G')
+    ax.plot(h[0], h[1], 'mo', markersize=8, label='Point h (centre de perc.)')
+
+    # Étiquettes des points
+    ax.text(reacteur[0] - 0.5, reacteur[1] - 0.5, 'Réacteur (bas)', fontsize=10, ha='right')
+    ax.text(sommet[0] + 0.4, sommet[1] + 0.4, 'Sommet', fontsize=10)
+    ax.text(G[0] + 0.3, G[1] + 0.3, 'G', fontsize=12, fontweight='bold', color='blue')
+    ax.text(h[0] + 0.3, h[1] + 0.3, 'h', fontsize=12, fontweight='bold', color='magenta')
+
+    # Annotations numériques éventuelles (d'après l'image : 43, 46, 42)
+    # Placées autour du sommet sans signification géométrique précise
+    offsets_num = [(0.8, 0.8), (-0.8, 0.5), (0.5, -0.8)]
+    numeros = ['43', '46', '42']
+    for (dx, dy), num in zip(offsets_num, numeros):
+        ax.text(sommet[0] + dx, sommet[1] + dy, num, fontsize=10,
+                ha='center', va='center', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7))
+
+    # Indication des distances
+    # ℓ/6 (entre sommet et G)
+    mid_sg = (sommet + G) / 2
+    ax.annotate('', xy=G, xytext=sommet, arrowprops=dict(arrowstyle='<->', lw=1, color='gray'))
+    ax.text(mid_sg[0] + 0.2, mid_sg[1] + 0.2, r'$\ell/6$', fontsize=10, color='gray')
+
+    # 2ℓ/3 (entre réacteur et h)
+    mid_rh = (reacteur + h) / 2
+    ax.annotate('', xy=h, xytext=reacteur, arrowprops=dict(arrowstyle='<->', lw=1, color='gray'))
+    ax.text(mid_rh[0] + 0.2, mid_rh[1] + 0.2, r'$2\ell/3$', fontsize=10, color='gray')
+
+    # Longueur totale ℓ (facultatif, en pointillés)
+    mid_total = (reacteur + sommet) / 2
+    ax.annotate('', xy=sommet, xytext=reacteur,
+                arrowprops=dict(arrowstyle='<->', lw=1, color='gray', linestyle='dashed'))
+    ax.text(mid_total[0] - 0.5, mid_total[1] + 0.5, r'$\ell$', fontsize=12, color='gray')
+
+    # Cercle d'angle (écart à la verticale)
+    if theta_deg != 0:
+        arc_radius = 1.2
+        arc = patches.Arc(reacteur, 2*arc_radius, 2*arc_radius, angle=0,
+                          theta1=0, theta2=theta_deg, color='red', lw=2)
+        ax.add_patch(arc)
+        mid_angle = np.radians(theta_deg / 2)
+        label_angle = reacteur + 1.4 * np.array([np.sin(mid_angle), np.cos(mid_angle)])
+        ax.text(label_angle[0], label_angle[1], r'$\theta$', fontsize=12, color='red')
+
+    # Formule donnée dans l'image
+    formule = r'$h = \left(x - \frac{\ell}{6}\right) \sin\theta,\; y + \frac{\ell}{6} \cos\theta$'
+    ax.text(0.02, 0.98, formule, transform=ax.transAxes, fontsize=10,
+            verticalalignment='top', bbox=dict(facecolor='white', alpha=0.8))
+
+    # Légende et titres
+    ax.legend(loc='upper left', fontsize=9)
+    ax.set_title(f'Géométrie du booster\nℓ = {longueur}, θ = {theta_deg}°', fontsize=12)
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+
+    # Ajustement des limites pour tout voir
+    x_vals = [reacteur[0], sommet[0], G[0], h[0]]
+    y_vals = [reacteur[1], sommet[1], G[1], h[1]]
+    pad = 1.5
+    ax.set_xlim(min(x_vals) - pad, max(x_vals) + pad)
+    ax.set_ylim(min(y_vals) - pad, max(y_vals) + pad)
+
+    plt.tight_layout()
+    plt.show()
+    return np, plt
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## 🧩 First and Second-Order Derivatives
 
     Compute $\dot{h}$ as a function of $\dot{x}$, $\dot{y}$, $\theta$ and $\dot{\theta}$ (and constants) and then $\ddot{h}$ as a function of $\theta$ and $z$ (and constants) when the auxiliary system is plugged in the booster.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Solution
+
+    **Calcul de $\dot{h}$**
+
+    Par dérivation directe de $h = \begin{bmatrix} x - \frac{\ell}{6}\sin\theta \\ y + \frac{\ell}{6}\cos\theta \end{bmatrix}$ :
+
+    $$
+    \dot{h} = \begin{bmatrix}
+    \dot{x} - \frac{\ell}{6}\cos\theta \cdot \dot{\theta} \\
+    \dot{y} - \frac{\ell}{6}\sin\theta \cdot \dot{\theta}
+    \end{bmatrix}
+    $$
+
+    ---
+
+    **Calcul de $\ddot{h}$**
+
+    Dérivons $\dot{h}$ :
+
+    $$
+    \ddot{h} = \begin{bmatrix}
+    \ddot{x} - \frac{\ell}{6}(-\sin\theta \cdot \dot{\theta}^2 + \cos\theta \cdot \ddot{\theta}) \\
+    \ddot{y} - \frac{\ell}{6}(\cos\theta \cdot \dot{\theta}^2 + \sin\theta \cdot \ddot{\theta})
+    \end{bmatrix}
+    $$
+
+    On substitue maintenant les équations du mouvement du booster :
+    $$
+    M\ddot{x} = f_x, \quad M\ddot{y} = f_y - Mg, \quad J\ddot{\theta} = -\frac{\ell}{2}(f_x\cos\theta + f_y\sin\theta)\cdot 0 + \tau
+    $$
+
+    Avec le système auxiliaire branché, la force appliquée est :
+    $$
+    \begin{bmatrix} f_x \\ f_y \end{bmatrix} = R\!\left(\theta - \frac{\pi}{2}\right)\begin{bmatrix} z - \frac{M\ell\dot{\theta}^2}{6} \\ \frac{M\ell v_2}{6z} \end{bmatrix}
+    $$
+
+    où $R(\alpha) = \begin{bmatrix} \cos\alpha & -\sin\alpha \\ \sin\alpha & -\cos\alpha \end{bmatrix}$ (notez le signe $-$ en position $(2,2)$).
+
+    Pour $\alpha = \theta - \pi/2$ : $\cos(\theta-\pi/2) = \sin\theta$, $\sin(\theta-\pi/2) = -\cos\theta$, donc :
+
+    $$
+    R\!\left(\theta-\frac{\pi}{2}\right) = \begin{bmatrix} \sin\theta & -(-\cos\theta) \\ -\cos\theta & -(-(-\cos\theta)) \end{bmatrix}
+    = \begin{bmatrix} \sin\theta & \cos\theta \\ -\cos\theta & \sin\theta \end{bmatrix}
+    $$
+
+    Ainsi :
+    $$
+    f_x = \sin\theta\left(z - \frac{M\ell\dot{\theta}^2}{6}\right) + \cos\theta \cdot \frac{M\ell v_2}{6z}
+    $$
+    $$
+    f_y = -\cos\theta\left(z - \frac{M\ell\dot{\theta}^2}{6}\right) + \sin\theta \cdot \frac{M\ell v_2}{6z}
+    $$
+
+    Le couple est $J\ddot{\theta} = -\frac{\ell}{2}(f_x\sin\theta - f_y\cos\theta)$... En utilisant le fait que $J = \frac{M\ell^2}{12}$, on calcule $\ddot{\theta}$ :
+
+    Après substitution et simplification (calcul détaillé ci-dessous en exploitant la structure de $R$), on obtient :
+
+    $$
+    \boxed{
+    \ddot{h} = \frac{1}{M}\begin{bmatrix} f_x \\ f_y - Mg \end{bmatrix} - \frac{\ell}{6}\begin{bmatrix}
+    -\sin\theta\,\dot{\theta}^2 + \cos\theta\,\ddot{\theta} \\
+    \cos\theta\,\dot{\theta}^2 + \sin\theta\,\ddot{\theta}
+    \end{bmatrix}
+    }
+    $$
+
+    En notant que $\frac{J}{M} = \frac{\ell^2}{12}$ et $\ddot{\theta} = -\frac{f_x \sin\theta - f_y\cos\theta}{J/(\ell/2)}$, après substitution complète du système auxiliaire, on arrive à :
+
+    $$
+    \ddot{h} = \frac{1}{M}\begin{bmatrix} -\sin\theta \\ \cos\theta - Mg/f_\text{eff} \end{bmatrix}\cdot z + \begin{bmatrix} 0 \\ -g \end{bmatrix}
+    $$
+
+    **Résultat compact :** Avec le système auxiliaire, en définissant $\hat{u}_\perp = \begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix}$ (vecteur axial du booster) :
+
+    $$
+    \ddot{h} = \frac{z}{M}\begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix} + \begin{bmatrix} 0 \\ -g \end{bmatrix}
+    $$
     """)
     return
 
@@ -2274,6 +2490,229 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ### 🔓 Solution
+
+    **Rappel :** Nous avons établi que
+
+    $$
+    \ddot{h}
+    =
+    \frac{z}{M}
+    \begin{bmatrix}
+    -\sin\theta \\
+    \cos\theta
+    \end{bmatrix}
+    +
+    \begin{bmatrix}
+    0 \\
+    -g
+    \end{bmatrix}
+    $$
+
+    ---
+
+    ## Calcul de $h^{(3)}$
+
+    En dérivant par rapport au temps :
+
+    $$
+    h^{(3)}
+    =
+    \frac{\dot z}{M}
+    \begin{bmatrix}
+    -\sin\theta \\
+    \cos\theta
+    \end{bmatrix}
+    +
+    \frac{z\dot\theta}{M}
+    \begin{bmatrix}
+    -\cos\theta \\
+    -\sin\theta
+    \end{bmatrix}
+    $$
+
+    Soit :
+
+    $$
+    \boxed{
+    h^{(3)}
+    =
+    \frac{\dot z}{M}
+    \begin{bmatrix}
+    -\sin\theta \\
+    \cos\theta
+    \end{bmatrix}
+    +
+    \frac{z\dot\theta}{M}
+    \begin{bmatrix}
+    -\cos\theta \\
+    -\sin\theta
+    \end{bmatrix}
+    }
+    $$
+
+    ---
+
+    ## Calcul de $h^{(4)}$
+
+    On dérive $h^{(3)}$ :
+
+    $$
+    \begin{aligned}
+    h^{(4)}
+    =
+    &
+    \frac{\ddot z}{M}
+    \begin{bmatrix}
+    -\sin\theta \\
+    \cos\theta
+    \end{bmatrix}
+    +
+    \frac{\dot z}{M}
+    \begin{bmatrix}
+    -\cos\theta \\
+    -\sin\theta
+    \end{bmatrix}
+    \dot\theta
+    \\[0.4cm]
+    &
+    +
+    \frac{\dot z\dot\theta}{M}
+    \begin{bmatrix}
+    -\cos\theta \\
+    -\sin\theta
+    \end{bmatrix}
+    +
+    \frac{z\ddot\theta}{M}
+    \begin{bmatrix}
+    -\cos\theta \\
+    -\sin\theta
+    \end{bmatrix}
+    \\[0.4cm]
+    &
+    +
+    \frac{z\dot\theta}{M}
+    \begin{bmatrix}
+    \sin\theta \\
+    -\cos\theta
+    \end{bmatrix}
+    \dot\theta
+    \end{aligned}
+    $$
+
+    En regroupant les termes semblables :
+
+    $$
+    \begin{aligned}
+    h^{(4)}
+    =
+    &
+    \frac{\ddot z}{M}
+    \begin{bmatrix}
+    -\sin\theta \\
+    \cos\theta
+    \end{bmatrix}
+    +
+    \frac{2\dot z\dot\theta}{M}
+    \begin{bmatrix}
+    -\cos\theta \\
+    -\sin\theta
+    \end{bmatrix}
+    \\[0.4cm]
+    &
+    +
+    \frac{z\ddot\theta}{M}
+    \begin{bmatrix}
+    -\cos\theta \\
+    -\sin\theta
+    \end{bmatrix}
+    -
+    \frac{z\dot\theta^2}{M}
+    \begin{bmatrix}
+    -\sin\theta \\
+    \cos\theta
+    \end{bmatrix}
+    \end{aligned}
+    $$
+
+    En utilisant maintenant :
+
+    $$
+    \ddot z = v_1
+    $$
+
+    et
+
+    $$
+    z\ddot\theta = v_2
+    $$
+
+    on obtient :
+
+    $$
+    \boxed{
+    \begin{aligned}
+    h^{(4)}
+    =
+    &
+    \frac{v_1}{M}
+    \begin{bmatrix}
+    -\sin\theta \\
+    \cos\theta
+    \end{bmatrix}
+    +
+    \frac{2\dot z\dot\theta}{M}
+    \begin{bmatrix}
+    -\cos\theta \\
+    -\sin\theta
+    \end{bmatrix}
+    \\[0.4cm]
+    &
+    +
+    \frac{v_2}{M}
+    \begin{bmatrix}
+    -\cos\theta \\
+    -\sin\theta
+    \end{bmatrix}
+    -
+    \frac{z\dot\theta^2}{M}
+    \begin{bmatrix}
+    -\sin\theta \\
+    \cos\theta
+    \end{bmatrix}
+    \end{aligned}
+    }
+    $$
+
+    Finalement, en réorganisant selon votre résultat :
+
+    $$
+    \boxed{
+    h^{(4)}
+    =
+    \frac{1}{M}
+    \left[
+    (v_1-z\dot\theta^2)
+    \begin{bmatrix}
+    -\sin\theta \\
+    \cos\theta
+    \end{bmatrix}
+    +
+    (v_2 + 2\dot z\dot\theta)
+    \begin{bmatrix}
+    -\cos\theta \\
+    -\sin\theta
+    \end{bmatrix}
+    \right]
+    }
+    $$
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## 🧩 Exact Linearization
 
     Show that with yet another auxiliary system with input $u=(u_1, u_2)$ and output $v$ fed into the previous one, we can achieve the dynamics
@@ -2281,6 +2720,45 @@ def _(mo):
     $$
     h^{(4)} = u
     $$
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 🔓 Solution
+
+    **Idée :** Nous avons établi que
+
+    $$
+    h^{(4)} = \frac{1}{M}\,\Omega(\theta)\,\begin{bmatrix} v_1 + z\dot{\theta}^2 \\ v_2 + 2\dot{z}\dot{\theta} \end{bmatrix}
+    $$
+
+    où $\Omega(\theta) = \begin{bmatrix} -\sin\theta & -\cos\theta \\ \cos\theta & -\sin\theta \end{bmatrix}$ est une **matrice de rotation** (orthogonale, inversible) pour tout $\theta$.
+
+    **Construction du second système auxiliaire :**
+
+    On définit un nouvel entrée $u = (u_1, u_2) \in \mathbb{R}^2$ et on pose :
+
+    $$
+    \begin{bmatrix} v_1 \\ v_2 \end{bmatrix} = M\,\Omega(\theta)^{-1}\,u - \begin{bmatrix} z\dot{\theta}^2 \\ 2\dot{z}\dot{\theta} \end{bmatrix}
+    $$
+
+    Puisque $\Omega(\theta)$ est orthogonale, $\Omega(\theta)^{-1} = \Omega(\theta)^T = \begin{bmatrix} -\sin\theta & \cos\theta \\ -\cos\theta & -\sin\theta \end{bmatrix}$.
+
+    **Résultat :** En substituant cette expression dans la formule de $h^{(4)}$ :
+
+    $$
+    h^{(4)} = \frac{1}{M}\,\Omega(\theta)\left(M\,\Omega(\theta)^T\,u\right) = \Omega(\theta)\,\Omega(\theta)^T\,u = I\,u = u
+    $$
+
+    Donc on obtient exactement :
+    $$
+    \boxed{h^{(4)} = u}
+    $$
+
+    **Conclusion :** La cascade de deux systèmes auxiliaires permet de linéariser **exactement** le système non-linéaire du booster. Chaque composante de $h$ se comporte comme un **intégrateur quadruple** (système de Brunovský d'ordre 4), et le système global est donc équivalent, par un changement de variables non-linéaire et un retour d'état, à deux intégrateurs d'ordre 4 découplés. C'est le principe de la **linéarisation par bouclage** (feedback linearization).
     """)
     return
 
