@@ -2291,92 +2291,87 @@ def _():
     import matplotlib.patches as patches
 
     # Paramètres
-    longueur = 10.0          # ℓ (longueur totale du booster)
-    theta_deg = 30.0         # angle d'inclinaison par rapport à la verticale (degrés)
+    longueur = 10.0          # ℓ (longueur totale)
+    theta_deg = 30.0         # angle d'inclinaison (degrés)
     theta = np.radians(theta_deg)
 
-    # Vecteur direction (du réacteur vers le sommet)
+    # Direction (du réacteur vers le sommet)
     dir_vec = np.array([np.sin(theta), np.cos(theta)])
 
-    # Points géométriques
-    reacteur = np.array([0.0, 0.0])                     # point d'appui (bas)
-    sommet = reacteur + longueur * dir_vec              # sommet
-    G = sommet - (longueur / 6) * dir_vec               # centre de masse (à ℓ/6 du sommet)
-    h = reacteur + (2 * longueur / 3) * dir_vec         # centre de percussion (à 2ℓ/3 du réacteur)
+    # Points
+    reacteur = np.array([0.0, 0.0])
+    sommet = reacteur + longueur * dir_vec
+    G = reacteur + (longueur / 2) * dir_vec          # Centre de masse au milieu
+    h = reacteur + (2 * longueur / 3) * dir_vec      # Centre de percussion
 
-    # Création de la figure
+    # Figure
     fig, ax = plt.subplots(figsize=(9, 9))
     ax.set_aspect('equal')
     ax.grid(True, linestyle='--', alpha=0.4)
 
-    # Tracé du booster (ligne principale)
-    ax.plot([reacteur[0], sommet[0]], [reacteur[1], sommet[1]],
-            'k-', linewidth=3, label='Booster')
+    # Tige principale
+    ax.plot([reacteur[0], sommet[0]], [reacteur[1], sommet[1]], 'k-', linewidth=3, label='Booster')
 
-    # Marquage des points
-    ax.plot(reacteur[0], reacteur[1], 'ro', markersize=8, label='Réacteur (point d\'appui)')
+    # Points
+    ax.plot(reacteur[0], reacteur[1], 'ro', markersize=8, label='Réacteur (appui)')
     ax.plot(sommet[0], sommet[1], 'go', markersize=8, label='Sommet')
     ax.plot(G[0], G[1], 'bo', markersize=8, label='Centre de masse G')
-    ax.plot(h[0], h[1], 'mo', markersize=8, label='Point h (centre de perc.)')
+    ax.plot(h[0], h[1], 'mo', markersize=8, label='Point h (centre perc.)')
 
-    # Étiquettes des points
-    ax.text(reacteur[0] - 0.5, reacteur[1] - 0.5, 'Réacteur (bas)', fontsize=10, ha='right')
-    ax.text(sommet[0] + 0.4, sommet[1] + 0.4, 'Sommet', fontsize=10)
-    ax.text(G[0] + 0.3, G[1] + 0.3, 'G', fontsize=12, fontweight='bold', color='blue')
-    ax.text(h[0] + 0.3, h[1] + 0.3, 'h', fontsize=12, fontweight='bold', color='magenta')
+    # Étiquettes
+    ax.text(reacteur[0]-0.5, reacteur[1]-0.5, 'Réacteur (bas)', ha='right')
+    ax.text(sommet[0]+0.4, sommet[1]+0.4, 'Sommet')
+    ax.text(G[0]+0.3, G[1]+0.3, 'G', fontsize=12, fontweight='bold', color='blue')
+    ax.text(h[0]+0.3, h[1]+0.3, 'h', fontsize=12, fontweight='bold', color='magenta')
 
-    # Annotations numériques éventuelles (d'après l'image : 43, 46, 42)
-    # Placées autour du sommet sans signification géométrique précise
-    offsets_num = [(0.8, 0.8), (-0.8, 0.5), (0.5, -0.8)]
+    # Annotations numériques 43,46,42 (comme dans l'image)
     numeros = ['43', '46', '42']
-    for (dx, dy), num in zip(offsets_num, numeros):
-        ax.text(sommet[0] + dx, sommet[1] + dy, num, fontsize=10,
-                ha='center', va='center', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7))
+    offsets = [(0.8,0.8), (-0.8,0.5), (0.5,-0.8)]
+    for (dx,dy), num in zip(offsets, numeros):
+        ax.text(sommet[0]+dx, sommet[1]+dy, num, ha='center', va='center',
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7))
 
-    # Indication des distances
-    # ℓ/6 (entre sommet et G)
-    mid_sg = (sommet + G) / 2
-    ax.annotate('', xy=G, xytext=sommet, arrowprops=dict(arrowstyle='<->', lw=1, color='gray'))
-    ax.text(mid_sg[0] + 0.2, mid_sg[1] + 0.2, r'$\ell/6$', fontsize=10, color='gray')
+    # Distances
+    # ℓ/2 (entre réacteur et G)
+    mid_rg = (reacteur + G) / 2
+    ax.annotate('', xy=G, xytext=reacteur, arrowprops=dict(arrowstyle='<->', lw=1, color='gray'))
+    ax.text(mid_rg[0]+0.2, mid_rg[1]+0.2, r'$\ell/2$', fontsize=10, color='gray')
 
     # 2ℓ/3 (entre réacteur et h)
     mid_rh = (reacteur + h) / 2
     ax.annotate('', xy=h, xytext=reacteur, arrowprops=dict(arrowstyle='<->', lw=1, color='gray'))
-    ax.text(mid_rh[0] + 0.2, mid_rh[1] + 0.2, r'$2\ell/3$', fontsize=10, color='gray')
+    ax.text(mid_rh[0]+0.2, mid_rh[1]+0.2, r'$2\ell/3$', fontsize=10, color='gray')
 
-    # Longueur totale ℓ (facultatif, en pointillés)
+    # Longueur ℓ totale
     mid_total = (reacteur + sommet) / 2
-    ax.annotate('', xy=sommet, xytext=reacteur,
-                arrowprops=dict(arrowstyle='<->', lw=1, color='gray', linestyle='dashed'))
-    ax.text(mid_total[0] - 0.5, mid_total[1] + 0.5, r'$\ell$', fontsize=12, color='gray')
+    ax.annotate('', xy=sommet, xytext=reacteur, arrowprops=dict(arrowstyle='<->', lw=1, color='gray', linestyle='dashed'))
+    ax.text(mid_total[0]-0.5, mid_total[1]+0.5, r'$\ell$', fontsize=12, color='gray')
 
-    # Cercle d'angle (écart à la verticale)
+    # Cercle d'angle θ
     if theta_deg != 0:
-        arc_radius = 1.2
-        arc = patches.Arc(reacteur, 2*arc_radius, 2*arc_radius, angle=0,
-                          theta1=0, theta2=theta_deg, color='red', lw=2)
+        arc = patches.Arc(reacteur, 2, 2, angle=0, theta1=0, theta2=theta_deg, color='red', lw=2)
         ax.add_patch(arc)
-        mid_angle = np.radians(theta_deg / 2)
+        mid_angle = np.radians(theta_deg/2)
         label_angle = reacteur + 1.4 * np.array([np.sin(mid_angle), np.cos(mid_angle)])
         ax.text(label_angle[0], label_angle[1], r'$\theta$', fontsize=12, color='red')
 
-    # Formule donnée dans l'image
+    # Formule (inchangée)
     formule = r'$h = \left(x - \frac{\ell}{6}\right) \sin\theta,\; y + \frac{\ell}{6} \cos\theta$'
     ax.text(0.02, 0.98, formule, transform=ax.transAxes, fontsize=10,
             verticalalignment='top', bbox=dict(facecolor='white', alpha=0.8))
 
-    # Légende et titres
+    # Légende
     ax.legend(loc='upper left', fontsize=9)
-    ax.set_title(f'Géométrie du booster\nℓ = {longueur}, θ = {theta_deg}°', fontsize=12)
+    ax.set_title(f'Booster – G au centre, ℓ={longueur}, θ={theta_deg}°')
     ax.set_xlabel('x')
     ax.set_ylabel('y')
 
-    # Ajustement des limites pour tout voir
+    # Limites
     x_vals = [reacteur[0], sommet[0], G[0], h[0]]
     y_vals = [reacteur[1], sommet[1], G[1], h[1]]
     pad = 1.5
-    ax.set_xlim(min(x_vals) - pad, max(x_vals) + pad)
-    ax.set_ylim(min(y_vals) - pad, max(y_vals) + pad)
+    ax.set_xlim(min(x_vals)-pad, max(x_vals)+pad)
+    ax.set_ylim(min(y_vals)-pad, max(y_vals)+pad)
 
     plt.tight_layout()
     plt.show()
@@ -2727,12 +2722,12 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### 🔓 Solution
+    ###  Solution
 
     **Idée :** Nous avons établi que
 
     $$
-    h^{(4)} = \frac{1}{M}\,\Omega(\theta)\,\begin{bmatrix} v_1 + z\dot{\theta}^2 \\ v_2 + 2\dot{z}\dot{\theta} \end{bmatrix}
+    h^{(4)} = \frac{1}{M}\,\Omega(\theta)\,\begin{bmatrix} v_1 - z\dot{\theta}^2 \\ v_2 + 2\dot{z}\dot{\theta} \end{bmatrix}
     $$
 
     où $\Omega(\theta) = \begin{bmatrix} -\sin\theta & -\cos\theta \\ \cos\theta & -\sin\theta \end{bmatrix}$ est une **matrice de rotation** (orthogonale, inversible) pour tout $\theta$.
@@ -2742,7 +2737,7 @@ def _(mo):
     On définit un nouvel entrée $u = (u_1, u_2) \in \mathbb{R}^2$ et on pose :
 
     $$
-    \begin{bmatrix} v_1 \\ v_2 \end{bmatrix} = M\,\Omega(\theta)^{-1}\,u - \begin{bmatrix} z\dot{\theta}^2 \\ 2\dot{z}\dot{\theta} \end{bmatrix}
+    \begin{bmatrix} v_1 \\ v_2 \end{bmatrix} = M\,\Omega(\theta)^{-1}\,u - \begin{bmatrix} -z\dot{\theta}^2 \\ 2\dot{z}\dot{\theta} \end{bmatrix}
     $$
 
     Puisque $\Omega(\theta)$ est orthogonale, $\Omega(\theta)^{-1} = \Omega(\theta)^T = \begin{bmatrix} -\sin\theta & \cos\theta \\ -\cos\theta & -\sin\theta \end{bmatrix}$.
@@ -2776,12 +2771,142 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ### Solution
+
+    En utilisant les formules dérivées précédemment :
+
+    - $h = \begin{bmatrix} x - \frac{\ell}{6}\sin\theta \\ y + \frac{\ell}{6}\cos\theta \end{bmatrix}$
+    - $\dot{h} = \begin{bmatrix} \dot{x} - \frac{\ell}{6}\cos\theta\,\dot{\theta} \\ \dot{y} - \frac{\ell}{6}\sin\theta\,\dot{\theta} \end{bmatrix}$
+    - $\ddot{h} = \frac{z}{M}\begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix} + \begin{bmatrix} 0 \\ -g \end{bmatrix}$
+    - $h^{(3)} = \frac{\dot{z}}{M}\begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix} + \frac{z\dot{\theta}}{M}\begin{bmatrix} -\cos\theta \\ -\sin\theta \end{bmatrix}$
+    """)
+    return
+
+
+@app.cell
+def _(M, g, l, np):
+    def Tr(x, dx, y, dy, theta, dtheta, z, dz):
+        """
+        Transforme l'état complet (booster + système auxiliaire) vers
+        les dérivées successives de la sortie h jusqu'à l'ordre 3.
+
+        Paramètres
+        ----------
+        x, dx, y, dy  : position et vitesse du centre de masse
+        theta, dtheta  : angle d'inclinaison et vitesse angulaire
+        z, dz          : état du système auxiliaire (z et son taux de variation)
+
+        Retourne
+        --------
+        h_x, h_y           : composantes de h (ordre 0)
+        dh_x, dh_y         : dérivées premières de h
+        d2h_x, d2h_y       : dérivées secondes de h
+        d3h_x, d3h_y       : dérivées troisièmes de h
+        """
+        # h = (x - l/6*sin(theta), y + l/6*cos(theta))
+        h_x = x - (l / 6) * np.sin(theta)
+        h_y = y + (l / 6) * np.cos(theta)
+
+        # dh/dt = (dx - l/6*cos(theta)*dtheta, dy - l/6*sin(theta)*dtheta)
+        dh_x = dx - (l / 6) * np.cos(theta) * dtheta
+        dh_y = dy - (l / 6) * np.sin(theta) * dtheta
+
+        # d²h/dt² = z/M * (-sin(theta), cos(theta)) + (0, -g)
+        d2h_x = (z / M) * (-np.sin(theta))
+        d2h_y = (z / M) * np.cos(theta) - g
+
+        # d³h/dt³ = dz/M * (-sin(theta), cos(theta)) + z*dtheta/M * (-cos(theta), -sin(theta))
+        d3h_x = (dz / M) * (-np.sin(theta)) + (z * dtheta / M) * (-np.cos(theta))
+        d3h_y = (dz / M) * np.cos(theta) + (z * dtheta / M) * (-np.sin(theta))
+
+        return h_x, h_y, dh_x, dh_y, d2h_x, d2h_y, d3h_x, d3h_y
+
+    # Test de vérification numérique
+    print("Test de Tr avec état neutre (booster vertical, z = -M*g) :")
+    _test = Tr(0, 0, l/2, 0, 0, 0, -M*g, 0)
+    print(f"  h     = ({_test[0]:.4f}, {_test[1]:.4f})  (attendu: (0, {l/2 + l/6:.4f}))")
+    print(f"  dh    = ({_test[2]:.4f}, {_test[3]:.4f})  (attendu: (0, 0))")
+    print(f"  d²h   = ({_test[4]:.4f}, {_test[5]:.4f})  (attendu: (0, 0) car z=-Mg => z/M=-g, -(-g)-g=0)")
+    print(f"  d³h   = ({_test[6]:.4f}, {_test[7]:.4f})  (attendu: (0, 0))")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## 🧩 Inversion
 
 
     Assume for the sake of simplicity that $z<0$ at all times. Show that given the values of $h$, $\dot{h}$, $\ddot{h}$ and $h^{(3)}$, one can uniquely compute the booster state (the values of $x$, $\dot{x}$, $y$, $\dot{y}$, $\theta$, $\dot{\theta}$) and auxiliary system state (the values of $z$ and $\dot{z}$).
 
     Implement the corresponding function `T_inv`.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Solution
+
+    **Démonstration de l'inversibilité**
+
+    Nous avons les relations :
+
+    $$
+    \ddot{h} = \frac{z}{M}\begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix} - \begin{bmatrix} 0 \\ g \end{bmatrix}
+    $$
+
+    Posons $w := \ddot{h} + \begin{bmatrix} 0 \\ g \end{bmatrix} = \frac{z}{M}\begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix}$.
+
+    **Étape 1 : Récupérer $z$ et $\theta$ depuis $\ddot{h}$**
+
+    Puisque $z < 0$, on a $z/M < 0$, donc :
+    - $w_x = (z/M)(-\sin\theta) = |z/M|\sin\theta$
+    - $w_y = (z/M)\cos\theta = -|z/M|\cos\theta$
+
+    Donc $|z| = M\|w\|$ et :
+    $$
+    z = -M\|w\|
+    $$
+
+    L'angle $\theta$ vérifie $\sin\theta = w_x/\|w\|$ et $\cos\theta = -w_y/\|w\|$, donc :
+    $$
+    \theta = \text{atan2}(w_x, -w_y)
+    $$
+
+    **Étape 2 : Récupérer $x$, $y$ depuis $h$ et $\theta$**
+
+    $$
+    x = h_x + \frac{\ell}{6}\sin\theta, \quad y = h_y - \frac{\ell}{6}\cos\theta
+    $$
+
+    **Étape 3 : Récupérer $\dot{\theta}$ et $\dot{z}$ depuis $h^{(3)}$**
+
+    $$
+    h^{(3)} = \frac{\dot{z}}{M}\begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix} + \frac{z\dot{\theta}}{M}\begin{bmatrix} -\cos\theta \\ -\sin\theta \end{bmatrix}
+    $$
+
+    On projette sur $\begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix}$ (vecteur de norme 1) :
+    $$
+    \dot{z}/M = h^{(3)} \cdot \begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix} \quad \Rightarrow \quad \dot{z} = M\left(-h^{(3)}_x\sin\theta + h^{(3)}_y\cos\theta\right)
+    $$
+
+    On projette sur $\begin{bmatrix} -\cos\theta \\ -\sin\theta \end{bmatrix}$ :
+    $$
+    z\dot{\theta}/M = h^{(3)} \cdot \begin{bmatrix} -\cos\theta \\ -\sin\theta \end{bmatrix} \quad \Rightarrow \quad \dot{\theta} = \frac{M}{z}\left(-h^{(3)}_x\cos\theta - h^{(3)}_y\sin\theta\right)
+    $$
+
+    Puisque $z \neq 0$, $\dot{\theta}$ est bien déterminé.
+
+    **Étape 4 : Récupérer $\dot{x}$, $\dot{y}$ depuis $\dot{h}$ et $(\theta, \dot{\theta})$**
+
+    $$
+    \dot{x} = \dot{h}_x + \frac{\ell}{6}\cos\theta\,\dot{\theta}, \quad
+    \dot{y} = \dot{h}_y + \frac{\ell}{6}\sin\theta\,\dot{\theta}
+    $$
+
+    L'inversibilité est ainsi établie : la transformation $T$ est un **difféomorphisme** (bijection différentiable d'inverse différentiable) sur l'ouvert $\{z < 0\}$.
     """)
     return
 
