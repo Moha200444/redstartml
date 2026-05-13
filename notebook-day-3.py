@@ -3330,8 +3330,7 @@ def _(M, booster_anim, compute, g, l, mo, np, plt, world):
         # Conditions initiales et finales
         x_0, dx_0, y_0, dy_0          = 5.0, 0.0, 20.0, -1.0
         theta_0, dtheta_0, z_0, dz_0  = -np.pi / 8, 0.0, -M * g, 0.0
-
-        x_tf, dx_tf, y_tf, dy_tf      = 0.0, 0.0, 2 / 3 * l, 0.0
+        x_tf, dx_tf, y_tf, dy_tf      = 0.0, 0.0, 2 * l / 3, 0.0
         theta_tf, dtheta_tf, z_tf, dz_tf = 0.0, 0.0, -M * g, 0.0
 
         fun = compute(
@@ -3350,82 +3349,89 @@ def _(M, booster_anim, compute, g, l, mo, np, plt, world):
         hx_t = x_t - (l / 6) * np.sin(theta_t)
         hy_t = y_t + (l / 6) * np.cos(theta_t)
 
-        # ── Figure 3×2 ─────────────────────────────────────────
-        fig = plt.figure(figsize=(15, 18))
+        # Figure 3x3
+        fig = plt.figure(figsize=(18, 20))
         gs = fig.add_gridspec(
-            3, 2, hspace=0.45, wspace=0.30, height_ratios=[1.2, 1, 1],
+            3, 3, hspace=0.40, wspace=0.35, height_ratios=[1.3, 1, 1],
         )
 
-        # ── 1. Trajectoire 2D ────────────────────────────────
+        # 1. Trajectoire 2D du booster
         ax_traj = fig.add_subplot(gs[0, 0])
-
-        # Sol + zone d'atterrissage
+        ax_traj.set_facecolor('#D6EAF8')
         ax_traj.axhline(0, color="saddlebrown", lw=2)
-        ax_traj.fill_between([-3, 8], -1.5, 0, color="saddlebrown", alpha=0.25)
-        ax_traj.plot([-1, 1], [0, 0], color="forestgreen", lw=6,
-                     alpha=0.7, solid_capstyle="butt", zorder=2)
-
-        # Trace du CdG
-        ax_traj.plot(x_t, y_t, "k-", lw=1, alpha=0.35, zorder=1,
+        ax_traj.fill_between([-4, 9], -1.5, 0, color="saddlebrown", alpha=0.35)
+        ax_traj.plot([-1, 1], [0, 0], color="forestgreen", lw=8, alpha=0.7,
+                     solid_capstyle="butt", zorder=2, label="Zone d'atterrissage")
+        ax_traj.plot(x_t, y_t, "k--", lw=0.8, alpha=0.4, zorder=1,
                      label="Trajectoire CdG")
-
-        # Snapshots du booster tous les ~0.4 s
-        n_snaps = 25
+        n_snaps = 30
         for i in np.linspace(0, len(t) - 1, n_snaps, dtype=int):
             xi, yi, thi = x_t[i], y_t[i], theta_t[i]
             c, s = np.cos(thi), np.sin(thi)
-            xt = xi - (l / 2) * s;  yt = yi + (l / 2) * c
-            xb = xi + (l / 2) * s;  yb = yi - (l / 2) * c
-            alpha = 0.12 + 0.75 * i / (len(t) - 1)
-            ax_traj.plot([xb, xt], [yb, yt], color="steelblue", lw=2.5,
+            xt = xi - (l/2)*s; yt = yi + (l/2)*c
+            xb = xi + (l/2)*s; yb = yi - (l/2)*c
+            alpha = 0.15 + 0.70 * i / (len(t) - 1)
+            ax_traj.plot([xb, xt], [yb, yt], color="steelblue", lw=4,
                          alpha=alpha, solid_capstyle="round", zorder=3)
-            # flamme (proportionnelle à f)
             fi = f_t[i]
-            flame_len = 0.4 * (fi / M / g)  # échelle visuelle
-            fx = xb - flame_len * s;  fy = yb - flame_len * c
-            ax_traj.plot([xb, fx], [yb, fy], color="orangered", lw=1.8,
-                         alpha=alpha * 0.8, solid_capstyle="round", zorder=3)
-
-        ax_traj.plot(x_0, y_0, "go", ms=10, zorder=5, label="Départ")
-        ax_traj.plot(x_tf, y_tf, "r^", ms=10, zorder=5, label="Arrivée")
+            if fi > 0.01:
+                flame_len = 0.5 * (fi / (M * g))
+                phi_i = phi_t[i]
+                flame_angle = thi + phi_i
+                fx_end = xb - flame_len * np.sin(flame_angle)
+                fy_end = yb + flame_len * np.cos(flame_angle)
+                ax_traj.plot([xb, fx_end], [yb, fy_end], color="orangered", lw=2.5,
+                             alpha=alpha * 0.8, solid_capstyle="round", zorder=3)
+                inner_len = flame_len * 0.6
+                fx_in = xb - inner_len * np.sin(flame_angle)
+                fy_in = yb + inner_len * np.cos(flame_angle)
+                ax_traj.plot([xb, fx_in], [yb, fy_in], color="gold", lw=1.2,
+                             alpha=alpha * 0.6, solid_capstyle="round", zorder=3)
+        ax_traj.plot(x_0, y_0, "go", ms=12, zorder=5, label="Depart (t=0)")
+        ax_traj.plot(x_tf, y_tf, "r^", ms=12, zorder=5, label="Arrivee (t=T)")
         ax_traj.set_xlabel("$x$ (m)")
         ax_traj.set_ylabel("$y$ (m)")
         ax_traj.set_title("Trajectoire 2D du booster")
         ax_traj.set_aspect("equal")
         ax_traj.set_xlim(-3, 8)
-        ax_traj.legend(loc="upper right", fontsize=9)
+        ax_traj.set_ylim(-1.5, 23)
+        ax_traj.legend(loc="upper right", fontsize=8)
         ax_traj.grid(True, alpha=0.25)
 
-        # ── 2. Sortie plate h(t) ────────────────────────────
+        # 2. Sortie plate h(t)
         ax_h = fig.add_subplot(gs[0, 1])
         ax_h.plot(t, hx_t, label=r"$h_x(t)$", color="royalblue", lw=1.5)
         ax_h.plot(t, hy_t, label=r"$h_y(t)$", color="tomato", lw=1.5)
-        ax_h.axhline(l / 2, color="grey", ls="--", lw=0.8, alpha=0.6,
+        ax_h.plot(0, hx_t[0], "go", ms=7, zorder=5)
+        ax_h.plot(tf, hx_t[-1], "r^", ms=7, zorder=5)
+        ax_h.plot(0, hy_t[0], "go", ms=7, zorder=5)
+        ax_h.plot(tf, hy_t[-1], "r^", ms=7, zorder=5)
+        ax_h.axhline(l/2, color="grey", ls="--", lw=0.8, alpha=0.6,
                      label=r"$y = \ell/2$ (sol)")
         ax_h.set_ylabel("Position (m)")
-        ax_h.set_title(r"Sortie plate $h(t)$ (centre de percussion, $\ell/3$ du bas)")
-        ax_h.legend(loc="best", fontsize=9)
+        ax_h.set_title(r"Sortie plate $h(t)$ (centre de percussion, $2\ell/3$ du bas)")
+        ax_h.legend(loc="best", fontsize=8)
         ax_h.grid(True, alpha=0.25)
 
-        # ── 3. Position ─────────────────────────────────────
-        ax_pos = fig.add_subplot(gs[1, 0])
+        # 3. Position x(t), y(t)
+        ax_pos = fig.add_subplot(gs[0, 2])
         ax_pos.plot(t, x_t, label=r"$x(t)$", color="royalblue", lw=1.5)
         ax_pos.plot(t, y_t, label=r"$y(t)$", color="tomato", lw=1.5)
-        ax_pos.axhline(l / 2, color="grey", ls="--", lw=0.8, alpha=0.6,
+        ax_pos.axhline(l/2, color="grey", ls="--", lw=0.8, alpha=0.6,
                        label=r"$y=\ell/2$ (sol)")
-        ax_pos.axhline(2 * l / 3, color="red", ls=":", lw=0.8, alpha=0.6,
+        ax_pos.axhline(2*l/3, color="red", ls=":", lw=0.8, alpha=0.6,
                        label=r"$y_f = 2\ell/3$ (cible)")
         ax_pos.plot(0, x_0, "go", ms=7, zorder=5)
         ax_pos.plot(tf, x_tf, "r^", ms=7, zorder=5)
         ax_pos.plot(0, y_0, "go", ms=7, zorder=5)
         ax_pos.plot(tf, y_tf, "r^", ms=7, zorder=5)
         ax_pos.set_ylabel("Position (m)")
-        ax_pos.set_title("Position du centre de gravité")
-        ax_pos.legend(loc="best", fontsize=9)
+        ax_pos.set_title("Position du centre de gravite")
+        ax_pos.legend(loc="best", fontsize=8)
         ax_pos.grid(True, alpha=0.25)
 
-        # ── 4. Vitesse ─────────────────────────────────────
-        ax_vel = fig.add_subplot(gs[1, 1])
+        # 4. Vitesse
+        ax_vel = fig.add_subplot(gs[1, 0])
         ax_vel.plot(t, dx_t, label=r"$\dot{x}(t)$", color="royalblue", lw=1.5)
         ax_vel.plot(t, dy_t, label=r"$\dot{y}(t)$", color="tomato", lw=1.5)
         ax_vel.axhline(0, color="black", ls=":", lw=0.8)
@@ -3434,88 +3440,124 @@ def _(M, booster_anim, compute, g, l, mo, np, plt, world):
         ax_vel.plot(tf, dx_tf, "r^", ms=7, zorder=5)
         ax_vel.plot(tf, dy_tf, "r^", ms=7, zorder=5)
         ax_vel.set_ylabel("Vitesse (m/s)")
-        ax_vel.set_title("Vitesse du centre de gravité")
-        ax_vel.legend(loc="best", fontsize=9)
+        ax_vel.set_xlabel(r"Temps $t$ (s)")
+        ax_vel.set_title("Vitesse du centre de gravite")
+        ax_vel.legend(loc="best", fontsize=8)
         ax_vel.grid(True, alpha=0.25)
 
-        # ── 5. Angle θ ─────────────────────────────────────
-        ax_th = fig.add_subplot(gs[2, 0])
+        # 5. Angle theta
+        ax_th = fig.add_subplot(gs[1, 1])
         ax_th.plot(t, np.degrees(theta_t), color="darkorange", lw=2,
                    label=r"$\theta(t)$")
         ax_th.axhline(-22.5, color="grey", ls="--", lw=0.8,
-                      label=r"$\theta_0 = -22.5°$")
+                      label=r"$\theta_0 = -22.5$")
         ax_th.axhline(0, color="black", ls=":", lw=0.8)
         ax_th.plot(0, np.degrees(theta_0), "go", ms=7, zorder=5)
         ax_th.plot(tf, 0, "r^", ms=7, zorder=5)
-        ax_th.set_ylabel("Angle (°)")
+        ax_th.set_ylabel("Angle (deg)")
         ax_th.set_xlabel(r"Temps $t$ (s)")
         ax_th.set_title(r"Inclinaison $\theta(t)$ du booster")
-        ax_th.legend(loc="best", fontsize=9)
+        ax_th.legend(loc="best", fontsize=8)
         ax_th.grid(True, alpha=0.25)
 
-        # ── 6. Force f et angle φ ──────────────────────────
-        ax_f = fig.add_subplot(gs[2, 1])
+        # 6. Vitesse angulaire
+        ax_om = fig.add_subplot(gs[1, 2])
+        ax_om.plot(t, np.degrees(dtheta_t), color="darkviolet", lw=1.5,
+                   label=r"$\dot{\theta}(t)$")
+        ax_om.axhline(0, color="black", ls=":", lw=0.8)
+        ax_om.plot(0, 0, "go", ms=7, zorder=5)
+        ax_om.plot(tf, 0, "r^", ms=7, zorder=5)
+        ax_om.set_ylabel("Vitesse angulaire (deg/s)")
+        ax_om.set_xlabel(r"Temps $t$ (s)")
+        ax_om.set_title(r"Vitesse angulaire $\dot{\theta}(t)$")
+        ax_om.legend(loc="best", fontsize=8)
+        ax_om.grid(True, alpha=0.25)
+
+        # 7. Force f
+        ax_f = fig.add_subplot(gs[2, 0])
         ax_f.plot(t, f_t, label=r"$f(t)$", color="purple", lw=2)
         ax_f.axhline(M * g, color="grey", ls="--", lw=0.8,
                      label=r"$Mg$ (pesanteur)")
-        ax_f.fill_between(t, 0, np.minimum(f_t, 0), color="red", alpha=0.12,
+        ax_f.fill_between(t, 0, np.minimum(f_t, 0), color="red", alpha=0.15,
                           label=r"$f < 0$ (interdit)")
-        ax_f.set_ylabel("Force $f$ (N)", color="purple")
-        ax_f.tick_params(axis="y", labelcolor="purple")
-
-        ax_p = ax_f.twinx()
-        ax_p.plot(t, np.degrees(phi_t), color="seagreen", lw=2, ls="--",
-                  label=r"$\phi(t)$")
-        ax_p.axhline(90, color="red", ls=":", lw=0.8, alpha=0.5)
-        ax_p.axhline(-90, color="red", ls=":", lw=0.8, alpha=0.5)
-        ax_p.axhline(0, color="black", ls=":", lw=0.5)
-        ax_p.set_ylabel(r"Angle $\phi$ (°)", color="seagreen")
-        ax_p.tick_params(axis="y", labelcolor="seagreen")
-
+        ax_f.plot(0, M*g, "go", ms=7, zorder=5)
+        ax_f.plot(tf, M*g, "r^", ms=7, zorder=5)
+        ax_f.set_ylabel("Force $f$ (N)")
         ax_f.set_xlabel(r"Temps $t$ (s)")
-        ax_f.set_title("Commandes : poussée $f$ et angle de cardan $\phi$")
-        h1, l1 = ax_f.get_legend_handles_labels()
-        h2, l2 = ax_p.get_legend_handles_labels()
-        ax_f.legend(h1 + h2, l1 + l2, loc="best", fontsize=9)
+        ax_f.set_title("Poussee $f(t)$")
+        ax_f.legend(loc="best", fontsize=8)
         ax_f.grid(True, alpha=0.25)
 
+        # 8. Angle phi
+        ax_p = fig.add_subplot(gs[2, 1])
+        ax_p.plot(t, np.degrees(phi_t), color="seagreen", lw=2, label=r"$\phi(t)$")
+        ax_p.axhline(90, color="red", ls=":", lw=0.8, alpha=0.5, label=r"$\pm 90$")
+        ax_p.axhline(-90, color="red", ls=":", lw=0.8, alpha=0.5)
+        ax_p.axhline(0, color="black", ls=":", lw=0.5)
+        ax_p.plot(0, np.degrees(phi_t[0]), "go", ms=7, zorder=5)
+        ax_p.plot(tf, np.degrees(phi_t[-1]), "r^", ms=7, zorder=5)
+        ax_p.set_ylabel(r"Angle $\phi$ (deg)")
+        ax_p.set_xlabel(r"Temps $t$ (s)")
+        ax_p.set_title(r"Angle de cardan $\phi(t)$")
+        ax_p.legend(loc="best", fontsize=8)
+        ax_p.grid(True, alpha=0.25)
+
+        # 9. Variable auxiliaire z
+        ax_z = fig.add_subplot(gs[2, 2])
+        ax_z.plot(t, z_t, label=r"$z(t)$", color="darkcyan", lw=1.5)
+        ax_z.axhline(-M*g, color="grey", ls="--", lw=0.8,
+                     label=r"$z = -Mg$ (equilibre)")
+        ax_z.axhline(0, color="red", ls=":", lw=0.8, alpha=0.5,
+                     label=r"$z = 0$ (singulier)")
+        ax_z.set_ylabel(r"$z$ (N equiv.)")
+        ax_z.set_xlabel(r"Temps $t$ (s)")
+        ax_z.set_title(r"Variable auxiliaire $z(t)$")
+        ax_z.legend(loc="best", fontsize=8)
+        ax_z.grid(True, alpha=0.25)
+
         fig.suptitle(
-            "Trajectoire admissible par linéarisation exacte\n"
+            "Trajectoire admissible par linearisation exacte\n"
             r"$(x_0, y_0, \theta_0) = (5,\;20,\;-\pi/8)$"
             r"$\;\longrightarrow\;$"
-            r"$(x_f, y_f, \theta_f) = (0,\;2\ell/3,\;0)$,"
+            r"$(x_f, y_f, \theta_f) = (0,\;2\ell/3,\;0),$"
             f"  $T = {tf}$ s",
-            fontsize=13, fontweight="bold", y=0.99,
+            fontsize=13, fontweight="bold", y=0.995,
         )
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
 
-        # ── Vérification des conditions aux bords ───────────
+        # Verification des conditions aux bords
         print("=== Conditions aux bords ===")
         s0, sf = fun(0.0), fun(tf)
         names  = ["x", "dx", "y", "dy", "theta", "dtheta", "z", "dz", "f", "phi"]
         c_i    = [x_0, dx_0, y_0, dy_0, theta_0, dtheta_0, z_0, dz_0, None, None]
         c_f    = [x_tf, dx_tf, y_tf, dy_tf, theta_tf, dtheta_tf, z_tf, dz_tf, None, None]
         for k, (nm, ci_k, cf_k) in enumerate(zip(names, c_i, c_f)):
-            line = f"  {nm:8s}:  t=0 → {s0[k]:10.6f}"
+            line = f"  {nm:8s}:  t=0 -> {s0[k]:12.6f}"
             if ci_k is not None:
-                line += f"  (cible {ci_k:9.4f}  err {abs(s0[k] - ci_k):.2e})"
-            line += f"  |  t=T → {sf[k]:10.6f}"
+                line += f"  (cible {ci_k:10.4f}  err {abs(s0[k] - ci_k):.2e})"
+            line += f"  |  t=T -> {sf[k]:12.6f}"
             if cf_k is not None:
-                line += f"  (cible {cf_k:9.4f}  err {abs(sf[k] - cf_k):.2e})"
+                line += f"  (cible {cf_k:10.4f}  err {abs(sf[k] - cf_k):.2e})"
             print(line)
 
-        # ── Contraintes physiques ───────────────────────────
+        # Contraintes physiques
         print("\n=== Contraintes physiques ===")
         f_viol = f_t.min() < 0
         phi_viol = np.max(np.abs(phi_t)) >= np.pi / 2
-        print(f"  f_min = {f_t.min():+.4f}   {'✓ f ≥ 0' if not f_viol else '✗ VIOLATION f < 0 !'}")
-        print(f"  f_max = {f_t.max():+.4f}")
-        print(f"  |φ|_max = {np.max(np.abs(phi_t)) * 180 / np.pi:.2f}°"
-              f"   {'✓ |φ| < 90°' if not phi_viol else '✗ VIOLATION |φ| ≥ 90° !'}")
+        print(f"  f_min     = {f_t.min():+.4f}   {'OK f >= 0' if not f_viol else '!! VIOLATION f < 0 !!'}")
+        print(f"  f_max     = {f_t.max():+.4f}")
+        print(f"  |phi|_max = {np.max(np.abs(phi_t)) * 180 / np.pi:.2f} deg"
+              f"   {'OK |phi| < 90 deg' if not phi_viol else '!! VIOLATION |phi| >= 90 deg !!'}")
+        print(f"  z_min     = {z_t.min():+.4f}   {'OK z < 0' if z_t.min() < 0 else '!! z >= 0 !!'}")
 
-        return mo.center(fig)
+        return fig, fun, tf
 
-
-    graphical_validation()
+    # ============================================================================
+    # Exécution de la validation graphique
+    # ============================================================================
+    if __name__ == "__main__":
+        fig_val, fun_val, tf_val = graphical_validation()
+        plt.show()
 
 
     def animation_validation():
